@@ -94,17 +94,23 @@ function ProductPage() {
 
   // Non-blocking: discover subscription plans that include this product.
   const { data: categories } = useQuery(categoriesQuery);
-  const subscriptionPackages = useMemo(() => {
-    const subs = (categories ?? [])
-      .flatMap((c) => c.packages ?? [])
-      .filter((p) => p.type === "subscription");
-    // De-duplicate by id (a plan can appear in multiple categories).
-    return Array.from(new Map(subs.map((p) => [p.id, p])).values());
-  }, [categories]);
+  // De-duplicated by id (a package can appear in multiple categories).
+  const allPackages = useMemo(
+    () =>
+      Array.from(
+        new Map((categories ?? []).flatMap((c) => c.packages ?? []).map((p) => [p.id, p])).values(),
+      ),
+    [categories],
+  );
+  const subscriptionPackages = useMemo(
+    () => allPackages.filter((p) => p.type === "subscription"),
+    [allPackages],
+  );
 
+  // Plans whose description lists this product, found automatically.
   const matchedSubscriptions = useMemo(
-    () => findSubscriptionsForProduct(product, subscriptionPackages),
-    [product, subscriptionPackages],
+    () => findSubscriptionsForProduct(product, allPackages),
+    [product, allPackages],
   );
 
   // When THIS product is a subscription: its 1 / 2 / 3 month terms. Each term

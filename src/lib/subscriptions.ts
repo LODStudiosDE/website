@@ -141,29 +141,20 @@ export function isSecondarySubscriptionTerm(
   });
 }
 
-function ruleMatchesProduct(rule: SubscriptionRule, productName: string): boolean {
-  const name = productName.toLowerCase();
-  return rule.keywords.some((k) => name.includes(k.toLowerCase()));
-}
-
 /**
- * Returns the live subscription packages that include the given product,
- * preserving the order of SUBSCRIPTION_RULES. Subscription products never
- * match themselves.
+ * The subscription plans that include `product`, as their shortest-term package.
+ * Found by scanning every plan's description for the product (see
+ * subscriptionPlanGroups), so a new product or plan needs no upkeep here.
+ * Subscription packages never match themselves.
  */
 export function findSubscriptionsForProduct(
-  product: Pick<TebexPackage, "name" | "type">,
-  subscriptionPackages: TebexPackage[],
+  product: Pick<TebexPackage, "id" | "type">,
+  all: TebexPackage[],
 ): TebexPackage[] {
   if (product.type === "subscription") return [];
-  const byId = new Map(subscriptionPackages.map((p) => [p.id, p]));
-  const out: TebexPackage[] = [];
-  for (const rule of SUBSCRIPTION_RULES) {
-    if (!ruleMatchesProduct(rule, product.name)) continue;
-    const pkg = byId.get(rule.packageId);
-    if (pkg) out.push(pkg);
-  }
-  return out;
+  return subscriptionPlanGroups(all)
+    .filter((g) => g.included.some((p) => p.id === product.id))
+    .map((g) => g.anchor);
 }
 
 // ── what a plan includes ────────────────────────────────────────────────────
