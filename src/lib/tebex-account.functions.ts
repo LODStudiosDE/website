@@ -10,7 +10,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { TEBEX_BASE, TEBEX_TOKEN } from "./tebex";
-import { paymentsForCfxId } from "./admin/admin.functions";
+import { paymentsForCfxId, type LookupPurchase } from "./admin/payments.server";
 
 const profileInput = z.object({ basketIdent: z.string().min(1) });
 
