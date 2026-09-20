@@ -8,9 +8,13 @@ import {
   SlidersHorizontal,
   ArrowRight,
   ShieldCheck,
+  ShoppingBag,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { AdminPageHeader, Panel } from "@/components/admin/ui";
+import { useQuery } from "@tanstack/react-query";
+import { AdminPageHeader, EmptyNotice, Panel, PanelTitle } from "@/components/admin/ui";
+import { fetchRecentPurchases } from "@/lib/admin/admin.functions";
+import { formatPrice } from "@/lib/cart-store";
 import { useAdminSession } from "@/lib/admin/use-admin";
 import { useTebexAuth } from "@/lib/tebex-auth";
 import { PERMISSIONS, type Permission } from "@/lib/admin/permissions";
@@ -72,6 +76,63 @@ const CARDS: Card[] = [
   },
 ];
 
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(d);
+}
+
+function RecentPurchases({ basketIdent }: { basketIdent: string }) {
+  const query = useQuery({
+    queryKey: ["admin-recent-purchases", basketIdent],
+    queryFn: () => fetchRecentPurchases({ data: { basketIdent } }),
+    refetchInterval: 30_000,
+  });
+  const purchases = query.data?.purchases ?? [];
+
+  return (
+    <Panel className="mb-8">
+      <PanelTitle
+        icon={<ShoppingBag className="h-5 w-5" />}
+        title="Letzte Käufe"
+        sub="Die neuesten Käufe im Shop, inklusive manuell erstellter Zahlungen."
+        right={
+          <Link
+            to="/admin/logs"
+            className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#FF3B3B] hover:underline"
+          >
+            Alle Logs
+          </Link>
+        }
+      />
+      {query.isLoading ? (
+        <div className="h-24 animate-pulse rounded-xl bg-white/[0.03]" />
+      ) : query.isError ? (
+        <EmptyNotice>Käufe konnten nicht geladen werden.</EmptyNotice>
+      ) : purchases.length === 0 ? (
+        <EmptyNotice>Noch keine Käufe vorhanden.</EmptyNotice>
+      ) : (
+        <ul className="divide-y divide-white/5">
+          {purchases.map((p, i) => (
+            <li key={`${p.txnId}-${i}`} className="flex items-center gap-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{p.packageName}</p>
+                <p className="truncate text-[11px] text-white/40">
+                  {p.buyer} · {formatDateTime(p.date)}
+                </p>
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-[#FF3B3B]">
+                {p.amount != null ? formatPrice(p.amount, p.currency) : "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 function AdminOverview() {
   const { session, can } = useAdminSession();
   const { user } = useTebexAuth();
@@ -80,6 +141,7 @@ function AdminOverview() {
     session.permissions === "*" ? PERMISSIONS.length : session.permissions.length;
 
   const cards = CARDS.filter((c) => c.perms.some((p) => can(p)));
+  const basketIdent = user?.basketIdent;
 
   return (
     <div>
@@ -115,6 +177,10 @@ function AdminOverview() {
           </div>
         </div>
       </Panel>
+
+      {(can("logs.view") || can("lookup.view")) && basketIdent && (
+        <RecentPurchases basketIdent={basketIdent} />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {cards.map((card) => (

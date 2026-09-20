@@ -103,18 +103,15 @@ async function fetchPurchases(
   // created for the customer (free / 0 € ones, gifts, manual payments) only show
   // up in the full payment history, so both sources are merged below.
   // Loading that history can take a while right after a server start. The
-  // profile never waits for it: it answers with what is there and the page asks
-  // again until the full list has arrived (`pending`).
+  // profile only waits briefly for it: the newest payments are always included,
+  // and the page asks again until the full list has arrived (`pending`).
   const [res, received] = await Promise.all([
     fetch(`${PLUGIN_BASE}/user/${encodeURIComponent(usernameId)}`, {
       headers: { "X-Tebex-Secret": secret, Accept: "application/json" },
     }).catch(() => null),
-    Promise.race([
-      paymentsForCfxId(usernameId).catch(() => null),
-      new Promise<null>((r) => setTimeout(() => r(null), 2500)),
-    ]),
+    paymentsForCfxId(usernameId, { waitMs: 2000 }).catch(() => null),
   ]);
-  const pending = received === null;
+  const pending = received === null || !received.complete;
 
   const body = res?.ok
     ? ((await res.json().catch(() => ({}))) as { payments?: Array<Record<string, unknown>> })
@@ -147,7 +144,7 @@ async function fetchPurchases(
   // Merge: the history row wins (it carries product names and the real amount).
   // The two APIs name the same payment differently (txn id vs. payment id), so
   // a lookup row counts as "already there" when time and amount agree.
-  const history = received ?? [];
+  const history = received?.purchases ?? [];
   const sameAsHistory = (p: (typeof normalized)[number]) =>
     history.some((r) => {
       const ms = r.date ? Date.parse(r.date) : NaN;

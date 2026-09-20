@@ -178,7 +178,8 @@ function ProfilePage() {
     staleTime: 60_000,
     // Free / created payments come from the full store history, which may still
     // be loading right after a server start: ask again until it is complete.
-    refetchInterval: (query) => (query.state.data?.purchasesPending ? 3_000 : false),
+    refetchInterval: (query) =>
+      query.state.data?.purchasesPending && query.state.dataUpdateCount < 10 ? 3_000 : false,
   });
 
   const data = profileQuery.data;

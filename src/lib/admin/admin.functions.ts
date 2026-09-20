@@ -322,21 +322,64 @@ function refreshPayments(): Promise<PaymentsResult> {
 export function __resetPaymentsCacheForTests(): void {
   _paymentsCache = null;
   _paymentsInflight = null;
+  _recentCache = null;
 }
 
-export async function fetchAllPaymentsDetailed(): Promise<PaymentsResult> {
+// The newest payments (page 1 = 25 rows, ~0.4 s). The full history takes 240+
+// requests to crawl, which a serverless request can never wait for — and a
+// cached history is up to 15 min old. So the newest page is fetched separately
+// and merged in: the latest purchases show up at once, whatever the crawl does.
+let _recentCache: { at: number; data: TebexPayment[] } | null = null;
+const RECENT_FRESH = 15_000;
+
+export async function fetchRecentPayments(): Promise<TebexPayment[]> {
+  if (_recentCache && Date.now() - _recentCache.at < RECENT_FRESH) return _recentCache.data;
+  const page = await fetchPaymentsPage(1);
+  if (!page) return _recentCache?.data ?? [];
+  const data = Array.isArray(page) ? page : (page.data ?? []);
+  _recentCache = { at: Date.now(), data };
+  return data;
+}
+
+const paymentKey = (p: TebexPayment) => String(p.id ?? p.txn_id ?? "");
+
+// Payments in `recent` win over the same payment in `base` (fresher status).
+function mergePayments(recent: TebexPayment[], base: TebexPayment[]): TebexPayment[] {
+  const seen = new Set(recent.map(paymentKey).filter(Boolean));
+  return [...recent, ...base.filter((p) => !seen.has(paymentKey(p)))];
+}
+
+// How long a request may wait for the full history before answering with what
+// it has (newest payments + whatever was cached).
+const HISTORY_WAIT_MS = 6_000;
+
+export async function fetchAllPaymentsDetailed(
+  opts: { waitMs?: number } = {},
+): Promise<PaymentsResult> {
+  const recentP = fetchRecentPayments().catch(() => [] as TebexPayment[]);
   const age = _paymentsCache ? Date.now() - _paymentsCache.at : Infinity;
+
   if (_paymentsCache && age < PAYMENTS_FRESH) {
-    return { payments: _paymentsCache.data, complete: true };
+    return { payments: mergePayments(await recentP, _paymentsCache.data), complete: true };
   }
   if (_paymentsCache && age < PAYMENTS_MAX_AGE) {
     void refreshPayments().catch(() => {}); // refresh in the background
-    return { payments: _paymentsCache.data, complete: true };
+    return { payments: mergePayments(await recentP, _paymentsCache.data), complete: true };
   }
-  const result = await refreshPayments();
-  // Crawl failed part-way: a slightly older complete history beats a holey one.
-  if (!result.complete && _paymentsCache) return { payments: _paymentsCache.data, complete: true };
-  return result;
+
+  // No (usable) full history: let the crawl run, but never wait for it longer
+  // than the budget — the newest payments are enough to answer.
+  const crawl = refreshPayments();
+  void crawl.catch(() => {});
+  const waited = await Promise.race([
+    crawl.catch(() => null),
+    sleep(opts.waitMs ?? HISTORY_WAIT_MS).then(() => null),
+  ]);
+  const recent = await recentP;
+  if (waited?.complete) return { payments: mergePayments(recent, waited.payments), complete: true };
+  // Crawl failed / still running: an older complete history beats a holey one.
+  if (_paymentsCache) return { payments: mergePayments(recent, _paymentsCache.data), complete: true };
+  return { payments: recent, complete: false };
 }
 
 // Customer profiles list created / free payments from this history, so load it
@@ -706,13 +749,18 @@ function logToPurchase(l: LogEntry): LookupPurchase {
  * gifts created in our admin panel. Matching is EXACT on the verified CFX id —
  * never by name — so nobody can see another customer's rows.
  */
-export async function paymentsForCfxId(cfxId: string): Promise<LookupPurchase[]> {
+export async function paymentsForCfxId(
+  cfxId: string,
+  opts: { waitMs?: number } = {},
+): Promise<{ purchases: LookupPurchase[]; complete: boolean }> {
   const id = cfxId.trim().toLowerCase();
-  if (!id) return [];
+  if (!id) return { purchases: [], complete: true };
   const out: LookupPurchase[] = [];
+  let complete = true;
 
   if (config().tebexSecret) {
-    const history = await fetchAllPaymentsDetailed();
+    const history = await fetchAllPaymentsDetailed(opts);
+    complete = history.complete;
     for (const p of history.payments) {
       if (String(p.player?.uuid ?? "").toLowerCase() !== id) continue;
       if (/declin/i.test(String(statusLabel(p.status) ?? ""))) continue; // never went through
@@ -728,8 +776,66 @@ export async function paymentsForCfxId(cfxId: string): Promise<LookupPurchase[]>
       out.push(logToPurchase(l));
     }
   }
-  return out;
+  return { purchases: out, complete };
 }
+
+// ── recent purchases (admin overview) ───────────────────────────────────────
+
+export type RecentPurchase = {
+  txnId: string;
+  date: string | null;
+  buyer: string;
+  packageName: string;
+  amount: number | null;
+  currency: string;
+  status: string | null;
+};
+
+/** The newest purchases of the whole store: real Tebex payments + admin-created ones. */
+export const fetchRecentPurchases = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => basketInput.parse(input))
+  .handler(async ({ data }): Promise<{ configured: boolean; purchases: RecentPurchase[] }> => {
+    const access = await accessFor(data.basketIdent);
+    if (!accessHas(access, "logs.view") && !accessHas(access, "lookup.view")) {
+      throw new Error("FORBIDDEN");
+    }
+    const cfg = config();
+    const rows: RecentPurchase[] = [];
+
+    if (cfg.tebexSecret) {
+      for (const p of await fetchRecentPayments()) {
+        const row = mapLookup(p);
+        if (!row.txnId || /declin/i.test(String(row.status ?? ""))) continue;
+        rows.push({
+          txnId: row.txnId,
+          date: row.date,
+          buyer: row.buyer ?? "—",
+          packageName: row.packageName,
+          amount: row.amount,
+          currency: row.currency ?? "EUR",
+          status: row.status == null ? null : String(row.status),
+        });
+      }
+    }
+    if (cfg.store) {
+      const logs = await readLogs().catch(() => [] as LogEntry[]);
+      for (const l of logs ?? []) {
+        if (l.paymentMethod == null && l.amount == null) continue; // not a payment
+        const row = logToPurchase(l);
+        rows.push({
+          txnId: row.txnId,
+          date: row.date,
+          buyer: row.buyer ?? "—",
+          packageName: row.packageName,
+          amount: row.amount,
+          currency: row.currency ?? "EUR",
+          status: row.status == null ? null : String(row.status),
+        });
+      }
+    }
+    rows.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+    return { configured: cfg.tebexSecret || cfg.store, purchases: rows.slice(0, 10) };
+  });
 
 export const adminLookup = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => lookupInput.parse(input))
