@@ -288,7 +288,10 @@ function StorePage() {
                     }}
                     count={allPackages.length}
                   />
-                  {categories.map((c) => {
+                  {/* A category made only of subscriptions is covered by the "included in" filter below. */}
+                  {categories
+                    .filter((c) => !(c.packages?.length && c.packages.every((p) => p.type === "subscription")))
+                    .map((c) => {
                     const checked = selectedCats.includes(c.id);
                     return (
                       <FilterCheckbox
