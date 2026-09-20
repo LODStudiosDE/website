@@ -116,9 +116,13 @@ const VIDEO_LABEL = /showcase|trailer|preview|walk\s*-?\s*through|walkaround|\bt
 
 type Section = "desc" | "features" | "notes" | "skip";
 
-/** "**Important Notes:** - no refunds" → { section: "notes", rest: "- no refunds" } */
+/**
+ * "**Important Notes:** - no refunds" → { section: "notes", rest: "- no refunds" }
+ * A trailing "?" / "!" is part of the heading, not of the label, so
+ * "What's included?" is recognised just like "What's included:".
+ */
 function readHeading(text: string): { section: Section; rest: string } | null {
-  const m = /^[\s*#_>]*([A-Za-zÀ-ÿ' ]{3,40}?)[\s*_]*(?::|-(?=\s)|$)[\s*_]*(.*)$/.exec(text);
+  const m = /^[\s*#_>]*([A-Za-zÀ-ÿ' ]{3,40}?)[\s*_?!]*(?::|-(?=\s)|$)[\s*_]*(.*)$/.exec(text);
   if (!m) return null;
   const label = m[1].trim().toLowerCase();
   const rest = (m[2] ?? "").trim();
@@ -288,6 +292,10 @@ export function parseDescription(html: string, skipTitle?: string): ParsedDescri
     }
 
     if (section === "features" || section === "notes") {
+      // "Your subscription includes access to all 15 maps:" — a sentence that
+      // introduces the list below. It is a label, never an entry of its own, so
+      // it stays in the description instead of becoming the first bullet.
+      if (!isListItem && /:\s*$/.test(text)) return false;
       const looksLikeItem = isListItem || BULLET.test(text) || text.length <= 90;
       if (looksLikeItem) {
         for (const part of isListItem ? [text] : splitInlineBullets(text)) {
