@@ -31,7 +31,7 @@ import {
 } from "@/lib/tebex";
 
 import { categoriesQuery } from "@/lib/queries";
-import { isSecondarySubscriptionTerm, normName, subscriptionPlanGroups } from "@/lib/subscriptions";
+import { normName, subscriptionPlanGroups } from "@/lib/subscriptions";
 
 export const Route = createFileRoute("/store/")({
   head: () => ({
@@ -121,10 +121,9 @@ function StorePage() {
         if (!map.has(pkg.id)) map.set(pkg.id, pkg);
       }
     }
-    // Each subscription plan appears once: its 2- and 3-month packages are
-    // reached through the term selector on the plan's page.
-    const all = Array.from(map.values());
-    return all.filter((pkg) => !isSecondarySubscriptionTerm(pkg, all));
+    // Subscriptions are not store products: they live on the /subscriptions tab
+    // and reach the store only through the "included in" plan filter.
+    return Array.from(map.values()).filter((pkg) => pkg.type !== "subscription");
   }, [categories]);
 
   // Subscription plans and the products each one includes.
@@ -332,8 +331,6 @@ function StorePage() {
                           });
                           setPage(1);
                         }}
-                        // Counted from what the list can actually show: the 2- and
-                        // 3-month packages of a subscription are hidden behind the plan.
                         count={allPackages.filter((p) => p.category.id === c.id).length}
                       />
                     );
