@@ -182,30 +182,34 @@ function SubscriptionsPage() {
     <div className="relative min-h-screen overflow-x-hidden bg-[#0C0C0D] text-white">
       <Navigation />
 
-      {/* HEADER HERO — same treatment as the store */}
-      <section className="relative h-[560px] w-full overflow-hidden">
+      {/* HEADER HERO — the clip is shown WHOLE: the section carries the video's
+          own 16:9 shape and `contain` guarantees nothing is cropped even if the
+          file has a different ratio. No tint over it, and the content below
+          does not overlap it. `min-h` only kicks in on narrow phones, where a
+          16:9 band would be too short to hold the headline. */}
+      <section className="relative aspect-video max-h-[86vh] min-h-[420px] w-full overflow-hidden">
         <HeroVideo
           src={import.meta.env.VITE_STORE_VIDEO_URL as string | undefined}
           videoId="Me2ATrIklJA"
           variant="store"
+          fit="contain"
         />
-        <div className="absolute inset-0 z-[3] bg-gradient-to-b from-[#0C0C0D]/40 via-transparent to-[#0C0C0D]" />
 
         <div className="relative z-10 mx-auto flex h-full max-w-[1600px] flex-col items-center justify-center px-8 pt-20 text-center">
-          <span className="mb-4 inline-flex items-center gap-2 border border-[#FF3B3B]/40 bg-[#FF3B3B]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.3em] text-[#FF3B3B]">
+          <span className="mb-4 inline-flex items-center gap-2 border border-[#FF3B3B]/40 bg-[#FF3B3B]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.3em] text-[#FF3B3B] backdrop-blur-sm">
             <Crown className="h-3.5 w-3.5" />
             {t("subs.hero.eyebrow")}
           </span>
-          <h1 className="font-display max-w-5xl text-[clamp(2.6rem,6vw,5.5rem)] font-bold leading-[1] tracking-tighter text-foreground drop-shadow-[0_4px_40px_rgba(0,0,0,0.55)]">
+          <h1 className="font-display max-w-5xl text-[clamp(2.6rem,6vw,5.5rem)] font-bold leading-[1] tracking-tighter text-foreground [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
             {t("subs.hero.title")}
           </h1>
-          <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-foreground/80">
+          <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-foreground/85 [text-shadow:0_2px_16px_rgba(0,0,0,0.9)]">
             {t("subs.hero.subtitle")}
           </p>
         </div>
       </section>
 
-      <main className="relative z-10 mx-auto -mt-24 w-full max-w-[1400px] px-6 pb-28 lg:px-12">
+      <main className="relative z-10 mx-auto w-full max-w-[1400px] px-6 pb-28 pt-14 lg:px-12">
         {plans.length === 0 ? (
           <div className="grid place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-24 text-center">
             <Crown className="h-8 w-8 text-white/25" />
