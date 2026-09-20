@@ -18,7 +18,8 @@ export function FeaturedCarousel({
   const items: TebexPackage[] = (() => {
     if (!data) return [];
     const map = new Map<number, TebexPackage>();
-    for (const c of data) for (const p of c.packages ?? []) if (!map.has(p.id)) map.set(p.id, p);
+    for (const c of data) for (const p of c.packages ?? [])
+      if (p.type !== "subscription" && !map.has(p.id)) map.set(p.id, p); // subscriptions are not products
     return Array.from(map.values())
       .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
       .slice(0, limit);
