@@ -32,7 +32,6 @@ import {
 
 import { categoriesQuery } from "@/lib/queries";
 import { isSecondarySubscriptionTerm } from "@/lib/subscriptions";
-import { parseDescription } from "@/lib/description-parser";
 
 export const Route = createFileRoute("/store/")({
   head: () => ({
@@ -502,15 +501,6 @@ function ProductCard({ product, index }: { product: TebexPackage; index: number 
 
   const INFO_H = 28;
 
-  // A subscription card lists what the plan includes (from the Tebex description).
-  const included = useMemo(
-    () => (product.type === "subscription" ? parseDescription(product.description ?? "", product.name).features : []),
-    [product.type, product.description, product.name],
-  );
-  const [showAll, setShowAll] = useState(false);
-  const LIMIT = 8;
-  const shown = showAll ? included : included.slice(0, LIMIT);
-
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -629,34 +619,6 @@ function ProductCard({ product, index }: { product: TebexPackage; index: number 
         </div>
       </div>
 
-      {included.length > 0 && (
-        <div className="border-t border-store-panel-foreground/10 px-4 pb-4 pt-3">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-store-muted">
-            {t("subs.includes")}
-          </div>
-          <ul className="space-y-1.5">
-            {shown.map((f, i) => (
-              <li key={i} className="flex items-start gap-2 text-[12.5px] leading-snug text-store-panel-foreground/80">
-                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-store-accent" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-          {included.length > LIMIT && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowAll((v) => !v);
-              }}
-              className="mt-2 text-[12px] font-semibold text-store-accent hover:opacity-80"
-            >
-              {showAll ? t("subs.showLess") : t("subs.more").replace("{n}", String(included.length - LIMIT))}
-            </button>
-          )}
-        </div>
-      )}
     </Link>
   );
 }
