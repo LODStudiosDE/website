@@ -20,7 +20,6 @@ export function HeroVideo({
   loopEnd,
   videoId = "ziIY8TEltSo",
   variant = "default",
-  fit = "cover",
 }: {
   /** Path/URL of a self-hosted MP4 (H.264). Defaults to VITE_HERO_VIDEO_URL or /videos/hero.mp4 */
   src?: string;
@@ -29,13 +28,6 @@ export function HeroVideo({
   /** YouTube video id, only used as a fallback when `src` fails to load. */
   videoId?: string;
   variant?: "default" | "store";
-  /**
-   * "cover" (default) fills the section and crops whatever does not fit.
-   * "contain" shows the WHOLE frame — nothing of the clip is ever cut off,
-   * whatever its aspect ratio. Only affects the self-hosted <video>; the
-   * YouTube fallback always fills the section.
-   */
-  fit?: "cover" | "contain";
 }) {
   // Remember which src failed; a new src automatically retries the native path.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
@@ -43,17 +35,11 @@ export function HeroVideo({
   const onFail = useCallback(() => setFailedSrc(src), [src]);
 
   return (
-    // With "contain" the clip rarely fills the section exactly; the letterbox
-    // bars must read as page background, not as a second dark tone.
-    <div
-      className={`video-background absolute inset-0 overflow-hidden ${
-        fit === "contain" ? "bg-[#0C0C0D]" : "bg-[#0A0F18]"
-      }`}
-    >
+    <div className="video-background absolute inset-0 overflow-hidden bg-[#0A0F18]">
       {useFallback ? (
         <YouTubeHero videoId={videoId} />
       ) : (
-        <NativeHero key={src} src={src} loopEnd={loopEnd} onFail={onFail} fit={fit} />
+        <NativeHero key={src} src={src} loopEnd={loopEnd} onFail={onFail} />
       )}
 
       {/* Click blocker */}
@@ -86,13 +72,11 @@ function NativeHero({
   src,
   loopEnd,
   onFail,
-  fit = "cover",
 }: {
   src: string;
   /** Restart from 0 once playback reaches this many seconds (partial loop). */
   loopEnd?: number;
   onFail: () => void;
-  fit?: "cover" | "contain";
 }) {
   const ref = useRef<HTMLVideoElement>(null);
 
@@ -153,9 +137,7 @@ function NativeHero({
       aria-hidden="true"
       tabIndex={-1}
       onError={onFail}
-      className={`pointer-events-none absolute inset-0 h-full w-full ${
-        fit === "contain" ? "object-contain" : "object-cover"
-      }`}
+      className="pointer-events-none absolute inset-0 h-full w-full object-cover"
     />
   );
 }

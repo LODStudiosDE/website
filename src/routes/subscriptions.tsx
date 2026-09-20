@@ -180,43 +180,43 @@ function SubscriptionsPage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#0C0C0D] text-white">
-      <Navigation />
-
-      {/* HEADER HERO — the clip is shown WHOLE: the section carries the video's
-          own 16:9 shape and `contain` guarantees nothing is cropped even if the
-          file has a different ratio. No tint over it, and the content below
-          does not overlap it. `min-h` only kicks in on narrow phones, where a
-          16:9 band would be too short to hold the headline. */}
-      <section className="relative aspect-video max-h-[86vh] min-h-[420px] w-full overflow-hidden">
+      {/* The clip IS the page background: pinned to the viewport, edge to edge,
+          and it stays put while the content scrolls over it. A light tint only
+          keeps the type readable — the footage stays clearly visible. */}
+      <div className="fixed inset-0 z-0">
         <HeroVideo
           src={import.meta.env.VITE_STORE_VIDEO_URL as string | undefined}
           videoId="Me2ATrIklJA"
           variant="store"
-          fit="contain"
         />
+        <div className="pointer-events-none absolute inset-0 z-[3] bg-gradient-to-b from-black/35 via-black/15 to-black/45" />
+      </div>
 
-        <div className="relative z-10 mx-auto flex h-full max-w-[1600px] flex-col items-center justify-center px-8 pt-20 text-center">
-          <span className="mb-4 inline-flex items-center gap-2 border border-[#FF3B3B]/40 bg-[#FF3B3B]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.3em] text-[#FF3B3B] backdrop-blur-sm">
-            <Crown className="h-3.5 w-3.5" />
-            {t("subs.hero.eyebrow")}
-          </span>
-          <h1 className="font-display max-w-5xl text-[clamp(2.6rem,6vw,5.5rem)] font-bold leading-[1] tracking-tighter text-foreground [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
-            {t("subs.hero.title")}
-          </h1>
-          <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-foreground/85 [text-shadow:0_2px_16px_rgba(0,0,0,0.9)]">
-            {t("subs.hero.subtitle")}
-          </p>
-        </div>
-      </section>
+      <div className="relative z-10">
+        <Navigation />
 
-      <main className="relative z-10 mx-auto w-full max-w-[1400px] px-6 pb-28 pt-14 lg:px-12">
-        {plans.length === 0 ? (
-          <div className="grid place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-24 text-center">
-            <Crown className="h-8 w-8 text-white/25" />
-            <p className="mt-4 max-w-sm text-sm text-white/45">{t("subs.empty")}</p>
+        {/* One screen: the heading on top, the subscription centred below it. */}
+        <main className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col items-center justify-center px-6 pb-16 pt-[130px] lg:px-12">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <span className="mb-4 inline-flex items-center gap-2 border border-[#FF3B3B]/40 bg-[#FF3B3B]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.3em] text-[#FF3B3B] backdrop-blur-sm">
+              <Crown className="h-3.5 w-3.5" />
+              {t("subs.hero.eyebrow")}
+            </span>
+            <h1 className="font-display max-w-4xl text-[clamp(2rem,4.6vw,4rem)] font-bold leading-[1.02] tracking-tighter text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
+              {t("subs.hero.title")}
+            </h1>
+            <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-white/85 [text-shadow:0_2px_16px_rgba(0,0,0,0.9)]">
+              {t("subs.hero.subtitle")}
+            </p>
           </div>
-        ) : (
-          <>
+
+          {plans.length === 0 ? (
+            <div className="grid w-full max-w-md place-items-center rounded-2xl border border-dashed border-white/15 bg-black/40 px-6 py-16 text-center backdrop-blur-md">
+              <Crown className="h-8 w-8 text-white/30" />
+              <p className="mt-4 max-w-sm text-sm text-white/55">{t("subs.empty")}</p>
+            </div>
+          ) : (
+            <>
             {/* Term switcher — every card compares at the same term */}
             {terms.length > 1 && (
               <div className="mb-10 flex flex-col items-center gap-3">
@@ -281,11 +281,12 @@ function SubscriptionsPage() {
               <Sparkles className="h-3.5 w-3.5 text-[#FF3B3B]" />
               {t("subs.note")}
             </p>
-          </>
-        )}
-      </main>
+            </>
+          )}
+        </main>
 
-      <Footer />
+        <Footer />
+      </div>
     </div>
   );
 }
