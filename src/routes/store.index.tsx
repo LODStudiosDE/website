@@ -301,9 +301,9 @@ function StorePage() {
                             label={g.base}
                             checked={checked}
                             onCheckedChange={() => {
-                              setSelectedPlans((prev) =>
-                                checked ? prev.filter((k) => k !== key) : [...prev, key],
-                              );
+                              // One entry at a time: picking a plan replaces any category.
+                              setSelectedCats([]);
+                              setSelectedPlans(checked ? [] : [key]);
                               setPage(1);
                             }}
                             count={g.included.filter((p) => allPackages.some((a) => a.id === p.id)).length}
@@ -324,12 +324,9 @@ function StorePage() {
                         label={c.name}
                         checked={checked}
                         onCheckedChange={() => {
-                          setSelectedCats((prev) => {
-                            const next = checked
-                              ? prev.filter((id) => id !== c.id)
-                              : [...prev, c.id];
-                            return next;
-                          });
+                          // One entry at a time: picking a category replaces any plan.
+                          setSelectedPlans([]);
+                          setSelectedCats(checked ? [] : [c.id]);
                           setPage(1);
                         }}
                         count={allPackages.filter((p) => p.category.id === c.id).length}
