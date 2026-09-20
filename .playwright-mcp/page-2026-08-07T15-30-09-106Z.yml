@@ -1,0 +1,73 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "LOD Studios" [ref=e6] [cursor=pointer]:
+            - /url: /
+            - img "LOD Studios" [ref=e7]
+          - generic [ref=e9]:
+            - link "YouTube" [ref=e10] [cursor=pointer]:
+              - /url: https://www.youtube.com/@LODStudios
+              - img [ref=e11]
+            - link "Discord" [ref=e14] [cursor=pointer]:
+              - /url: https://discord.gg/lodstudio
+              - img [ref=e15]
+        - navigation [ref=e17]:
+          - link "Home" [ref=e18] [cursor=pointer]:
+            - /url: /
+          - link "Store" [ref=e19] [cursor=pointer]:
+            - /url: /store
+          - link "Team" [ref=e20] [cursor=pointer]:
+            - /url: /team
+          - link "Jobs" [ref=e21] [cursor=pointer]:
+            - /url: /jobs
+        - generic [ref=e22]:
+          - button "region.change" [ref=e23]:
+            - img [ref=e25]
+            - generic [ref=e32]: EN
+            - generic [ref=e33]: /
+            - generic [ref=e34]: USD
+          - button "Login" [ref=e35]:
+            - img [ref=e36]
+            - text: Login
+          - link "Open cart" [ref=e39] [cursor=pointer]:
+            - /url: /cart
+            - img [ref=e40]
+            - generic [ref=e44]: "0"
+    - main [ref=e45]:
+      - heading "My Profile" [level=1] [ref=e46]
+      - paragraph [ref=e47]: Please log in with FiveM to view your purchases and subscriptions.
+      - button "Login" [ref=e48]:
+        - img [ref=e49]
+        - text: Login
+    - contentinfo [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - link "Tebex" [ref=e55] [cursor=pointer]:
+            - /url: https://tebex.io
+            - img "Tebex" [ref=e56]
+          - link "LOD Studios" [ref=e57] [cursor=pointer]:
+            - /url: /
+            - img "LOD Studios" [ref=e58]
+          - link "DocsHub" [ref=e59] [cursor=pointer]:
+            - /url: https://docshub.cloud
+            - img "DocsHub" [ref=e60]
+        - generic [ref=e62]:
+          - paragraph [ref=e63]: © 2022 - 2026 LODStudios is not partnered or allied with Rockstar Games or Take Two Interactive.
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - link "Imprint" [ref=e66] [cursor=pointer]:
+                - /url: /impressum
+              - generic [ref=e67]: "|"
+            - generic [ref=e68]:
+              - link "Terms & Conditions" [ref=e69] [cursor=pointer]:
+                - /url: /terms
+              - generic [ref=e70]: "|"
+            - generic [ref=e71]:
+              - link "Privacy Policy" [ref=e72] [cursor=pointer]:
+                - /url: /privacy
+              - generic [ref=e73]: "|"
+            - link "Terms of Service" [ref=e75] [cursor=pointer]:
+              - /url: /tos
+  - region "Notifications alt+T"

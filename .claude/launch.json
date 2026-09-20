@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "celestial-assets-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 8080
+    },
+    {
+      "name": "celestial-assets-prod",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--env-file=.env", ".output/server/index.mjs"],
+      "port": 3000
+    }
+  ]
+}
