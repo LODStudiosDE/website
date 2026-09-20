@@ -390,8 +390,8 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
                 </span>
               )}
               {term.savePercent > 0 && (
-                <span className="rounded-sm bg-[#FF3B3B] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
-                  {t("store.subterm.save").replace("{pct}", String(term.savePercent))}
+                <span className="rounded-sm bg-[#FF3B3B] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-white">
+                  {t("subs.off").replace("{pct}", String(term.savePercent))}
                 </span>
               )}
             </div>
