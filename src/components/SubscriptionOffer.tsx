@@ -6,11 +6,10 @@ import type { TebexPackage } from "@/lib/tebex";
 import { useCart } from "@/lib/cart-store";
 import { showCartToast } from "@/components/CartToast";
 import { useT } from "@/lib/i18n";
+import { formatPrice } from "@/lib/cart-store";
 
 function priceLabel(pkg: TebexPackage): string {
-  const symbol =
-    pkg.currency === "EUR" ? "€" : pkg.currency === "USD" ? "$" : pkg.currency === "GBP" ? "£" : "";
-  return `${symbol}${pkg.total_price.toFixed(2)}`;
+  return formatPrice(pkg.total_price, pkg.currency);
 }
 
 function Thumb({ pkg }: { pkg: TebexPackage }) {

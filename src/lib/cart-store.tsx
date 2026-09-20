@@ -1,3 +1,4 @@
+import { getPriceLocale } from "@/lib/i18n";
 import {
   createContext,
   useCallback,
@@ -139,14 +140,11 @@ export function useCart(): CartContextValue {
   return ctx;
 }
 
+/** "€19.99" / "19,99 €" — the symbol, not the currency code, placed the way the language writes it. */
 export function formatPrice(amount: number, currency = "EUR"): string {
-  const symbol =
-    currency === "EUR"
-      ? "€"
-      : currency === "USD"
-        ? "$"
-        : currency === "GBP"
-          ? "£"
-          : "";
-  return `${symbol}${amount.toFixed(2)} ${currency}`;
+  try {
+    return new Intl.NumberFormat(getPriceLocale(), { style: "currency", currency }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
 }

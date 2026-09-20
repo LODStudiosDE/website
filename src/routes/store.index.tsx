@@ -25,6 +25,7 @@ import { useWishlist } from "@/lib/wishlist-store";
 import { useTebexAuth } from "@/lib/tebex-auth";
 import { notify as toast } from "@/components/Notify";
 import { useT } from "@/lib/i18n";
+import { formatPrice } from "@/lib/cart-store";
 import {
   type TebexCategory,
   type TebexPackage,
@@ -546,7 +547,7 @@ function ProductCard({ product, index }: { product: TebexPackage; index: number 
     product.media?.[0]?.url ||
     "";
 
-  const price = `${product.currency === "EUR" ? "€" : product.currency + " "}${product.total_price.toFixed(2)}`;
+  const price = formatPrice(product.total_price, product.currency);
 
   const INFO_H = 28;
 

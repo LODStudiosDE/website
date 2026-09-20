@@ -14,8 +14,8 @@ import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { HeroVideo } from "@/components/HeroVideo";
 import { showCartToast } from "@/components/CartToast";
-import { useCart } from "@/lib/cart-store";
-import { useI18n, useT } from "@/lib/i18n";
+import { useCart, formatPrice } from "@/lib/cart-store";
+import { useT } from "@/lib/i18n";
 import { categoriesQuery } from "@/lib/queries";
 import { stripHtml, type TebexPackage } from "@/lib/tebex";
 import { parseDescription } from "@/lib/description-parser";
@@ -199,23 +199,8 @@ function SubscriptionsPage() {
 
 const VISIBLE_PERKS = 7;
 
-const LOCALES = { EN: "en-US", DE: "de-DE", FR: "fr-FR" } as const;
-
-/** Money in the visitor's language: "€19.99" in English, "19,99 €" in German / French. */
-function useMoney() {
-  const { lang } = useI18n();
-  return (amount: number, currency: string) => {
-    try {
-      return new Intl.NumberFormat(LOCALES[lang] ?? "en-US", { style: "currency", currency }).format(amount);
-    } catch {
-      return `${amount.toFixed(2)} ${currency}`;
-    }
-  };
-}
-
 function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: number }) {
   const t = useT();
-  const money = useMoney();
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -351,7 +336,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
         <div className="mt-5 border-y border-white/10 py-4">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="font-display text-[34px] font-bold leading-none tracking-tight text-white">
-              {money(pkg.total_price, pkg.currency)}
+              {formatPrice(pkg.total_price, pkg.currency)}
               {monthly && (
                 <span className="ml-1 text-[16px] font-semibold tracking-normal text-white/60">
                   {t("subs.perMonthShort")}
@@ -360,7 +345,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
             </span>
             {term && term.savePercent > 0 && term.regularTotal != null && (
               <span className="text-[14px] text-white/30 line-through">
-                {money(term.regularTotal, pkg.currency)}
+                {formatPrice(term.regularTotal, pkg.currency)}
               </span>
             )}
             {!monthly && term && (
@@ -376,7 +361,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
                 <span className="text-[11px] text-white/40">
                   {t("subs.perMonthEq").replace(
                     "{price}",
-                    money(pkg.total_price / term.months, pkg.currency),
+                    formatPrice(pkg.total_price / term.months, pkg.currency),
                   )}
                 </span>
               )}
@@ -410,7 +395,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
                 <ShoppingCart className="h-4 w-4" />
                 {t("subs.subscribe").replace(
                   "{price}",
-                  money(pkg.total_price, pkg.currency) + (monthly ? t("subs.perMonthShort") : ""),
+                  formatPrice(pkg.total_price, pkg.currency) + (monthly ? t("subs.perMonthShort") : ""),
                 )}
               </>
             )}

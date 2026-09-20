@@ -34,6 +34,14 @@ const DICTS: Record<Lang, Dict> = {
 export const DEFAULT_LANG: Lang = "EN";
 export const DEFAULT_CURRENCY = "USD";
 
+// Number/currency locale per language: decides where the symbol goes
+// ("€19.99" in English, "19,99 €" in German and French).
+const PRICE_LOCALES: Record<Lang, string> = { EN: "en-US", DE: "de-DE", FR: "fr-FR" };
+let activePriceLocale = PRICE_LOCALES[DEFAULT_LANG];
+
+/** Locale that price formatting follows; kept in step with the selected language. */
+export const getPriceLocale = () => activePriceLocale;
+
 const LANG_KEY = "lod_lang";
 const CURRENCY_KEY = "lod_currency";
 
@@ -54,6 +62,8 @@ function translate(lang: Lang, key: string, fallback?: string): string {
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
   const [currency, setCurrencyState] = useState<string>(DEFAULT_CURRENCY);
+  // Set during render so every price formatted below already uses the new language.
+  activePriceLocale = PRICE_LOCALES[lang] ?? PRICE_LOCALES[DEFAULT_LANG];
 
   useEffect(() => {
     if (typeof document !== "undefined") {
