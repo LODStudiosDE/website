@@ -20,6 +20,7 @@ import { Route as PurchasesRouteImport } from './routes/purchases'
 import { Route as ReferralRouteImport } from './routes/referral'
 import { Route as ReferralsRouteImport } from './routes/referrals'
 import { Route as StoreRouteImport } from './routes/store'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TosRouteImport } from './routes/tos'
@@ -90,6 +91,11 @@ const ReferralsRoute = ReferralsRouteImport.update({
 const StoreRoute = StoreRouteImport.update({
   id: '/store',
   path: '/store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeamRoute = TeamRouteImport.update({
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/referral': typeof ReferralRoute
   '/referrals': typeof ReferralsRoute
   '/store': typeof StoreRouteWithChildren
+  '/subscriptions': typeof SubscriptionsRoute
   '/team': typeof TeamRoute
   '/terms': typeof TermsRoute
   '/tos': typeof TosRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/purchases': typeof PurchasesRoute
   '/referral': typeof ReferralRoute
   '/referrals': typeof ReferralsRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/team': typeof TeamRoute
   '/terms': typeof TermsRoute
   '/tos': typeof TosRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/referral': typeof ReferralRoute
   '/referrals': typeof ReferralsRoute
   '/store': typeof StoreRouteWithChildren
+  '/subscriptions': typeof SubscriptionsRoute
   '/team': typeof TeamRoute
   '/terms': typeof TermsRoute
   '/tos': typeof TosRoute
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
     | '/referral'
     | '/referrals'
     | '/store'
+    | '/subscriptions'
     | '/team'
     | '/terms'
     | '/tos'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/purchases'
     | '/referral'
     | '/referrals'
+    | '/subscriptions'
     | '/team'
     | '/terms'
     | '/tos'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/referral'
     | '/referrals'
     | '/store'
+    | '/subscriptions'
     | '/team'
     | '/terms'
     | '/tos'
@@ -357,6 +369,7 @@ export interface RootRouteChildren {
   ReferralRoute: typeof ReferralRoute
   ReferralsRoute: typeof ReferralsRoute
   StoreRoute: typeof StoreRouteWithChildren
+  SubscriptionsRoute: typeof SubscriptionsRoute
   TeamRoute: typeof TeamRoute
   TermsRoute: typeof TermsRoute
   TosRoute: typeof TosRoute
@@ -440,6 +453,13 @@ declare module '@tanstack/react-router' {
       path: '/store'
       fullPath: '/store'
       preLoaderRoute: typeof StoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/team': {
@@ -617,6 +637,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReferralRoute: ReferralRoute,
   ReferralsRoute: ReferralsRoute,
   StoreRoute: StoreRouteWithChildren,
+  SubscriptionsRoute: SubscriptionsRoute,
   TeamRoute: TeamRoute,
   TermsRoute: TermsRoute,
   TosRoute: TosRoute,

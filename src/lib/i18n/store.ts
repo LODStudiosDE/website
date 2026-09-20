@@ -53,6 +53,24 @@ export const store: Namespace = {
     "store.sub.close": "Close",
     "store.sub.noDescription": "No description available for this plan.",
 
+    // /subscriptions — overview of every plan we offer
+    "subs.hero.eyebrow": "Subscriptions",
+    "subs.hero.title": "All our subscriptions",
+    "subs.hero.subtitle":
+      "One plan, a whole collection: every subscription unlocks a set of our MLOs for as long as it runs. Prices come straight from Tebex.",
+    "subs.plans.title": "Choose your plan",
+    "subs.plans.sub": "Pay monthly, or save with a 2- or 3-month term.",
+    "subs.term.month": "1 month",
+    "subs.term.months": "{n} months",
+    "subs.includes": "Includes",
+    "subs.includesCount": "{n} products",
+    "subs.more": "+{n} more",
+    "subs.viewPlan": "View plan",
+    "subs.perMonthEq": "≈ {price} / month",
+    "subs.best": "Best value",
+    "subs.empty": "No subscriptions are available right now.",
+    "subs.note": "Subscriptions renew automatically until cancelled.",
+
     "store.tech.title": "Technical Details",
     "store.tech.category": "Category",
     "store.tech.framework": "Framework",
@@ -152,6 +170,24 @@ export const store: Namespace = {
     "store.sub.close": "Schließen",
     "store.sub.noDescription": "Für dieses Abo ist keine Beschreibung verfügbar.",
 
+    // /subscriptions — Übersicht aller Abos
+    "subs.hero.eyebrow": "Abos",
+    "subs.hero.title": "Alle unsere Abos",
+    "subs.hero.subtitle":
+      "Ein Abo, eine ganze Sammlung: Jedes Abo schaltet eine Auswahl unserer MLOs frei, solange es läuft. Die Preise kommen direkt von Tebex.",
+    "subs.plans.title": "Wähle dein Abo",
+    "subs.plans.sub": "Monatlich zahlen oder mit 2 bzw. 3 Monaten Laufzeit sparen.",
+    "subs.term.month": "1 Monat",
+    "subs.term.months": "{n} Monate",
+    "subs.includes": "Enthält",
+    "subs.includesCount": "{n} Produkte",
+    "subs.more": "+{n} weitere",
+    "subs.viewPlan": "Zum Abo",
+    "subs.perMonthEq": "≈ {price} / Monat",
+    "subs.best": "Bester Preis",
+    "subs.empty": "Aktuell sind keine Abos verfügbar.",
+    "subs.note": "Abos verlängern sich automatisch, bis sie gekündigt werden.",
+
     "store.tech.title": "Technische Details",
     "store.tech.category": "Kategorie",
     "store.tech.framework": "Framework",
@@ -250,6 +286,24 @@ export const store: Namespace = {
     "store.sub.hint": "Touchez un abonnement pour ouvrir sa page",
     "store.sub.close": "Fermer",
     "store.sub.noDescription": "Aucune description disponible pour cet abonnement.",
+
+    // /subscriptions — aperçu de tous nos abonnements
+    "subs.hero.eyebrow": "Abonnements",
+    "subs.hero.title": "Tous nos abonnements",
+    "subs.hero.subtitle":
+      "Un abonnement, toute une collection : chaque abonnement débloque une sélection de nos MLO tant qu'il est actif. Les prix viennent directement de Tebex.",
+    "subs.plans.title": "Choisissez votre abonnement",
+    "subs.plans.sub": "Payez chaque mois ou économisez avec 2 ou 3 mois d'engagement.",
+    "subs.term.month": "1 mois",
+    "subs.term.months": "{n} mois",
+    "subs.includes": "Comprend",
+    "subs.includesCount": "{n} produits",
+    "subs.more": "+{n} autres",
+    "subs.viewPlan": "Voir l'abonnement",
+    "subs.perMonthEq": "≈ {price} / mois",
+    "subs.best": "Meilleur prix",
+    "subs.empty": "Aucun abonnement n'est disponible pour le moment.",
+    "subs.note": "Les abonnements se renouvellent automatiquement jusqu'à résiliation.",
 
     "store.tech.title": "Détails techniques",
     "store.tech.category": "Catégorie",

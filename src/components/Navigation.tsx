@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { ShoppingCart, User, Users, Youtube, LogOut, ChevronDown, Shield } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { RegionPicker } from "@/components/RegionPicker";
+import { categoriesQuery } from "@/lib/queries";
 import { useCart } from "@/lib/cart-store";
 import { useTebexAuth } from "@/lib/tebex-auth";
 import { useAdminSession } from "@/lib/admin/use-admin";
 import { useT } from "@/lib/i18n";
 
-const navItems: { key: string; to: "/" | "/store" | "/team" | "/jobs" }[] = [
+const navItems: {
+  key: string;
+  to: "/" | "/store" | "/subscriptions" | "/team" | "/jobs";
+}[] = [
   { key: "nav.home", to: "/" },
   { key: "nav.store", to: "/store" },
+  { key: "nav.subscriptions", to: "/subscriptions" },
   { key: "nav.team", to: "/team" },
   { key: "nav.jobs", to: "/jobs" },
 ];
@@ -31,6 +37,16 @@ export function Navigation() {
   const { user, isAuthed, loading, login, logout } = useTebexAuth();
   const { isAdmin } = useAdminSession();
   const t = useT();
+
+  // The subscriptions tab only shows while Tebex actually offers subscription
+  // packages, so it never leads to an empty page. It appears by itself as soon
+  // as plans exist in the "Subscriptions" category. Non-blocking: the catalogue
+  // is already in the query cache on most pages (store / home loaders).
+  const { data: categories } = useQuery(categoriesQuery);
+  const hasSubscriptions = (categories ?? []).some((c) =>
+    (c.packages ?? []).some((p) => p.type === "subscription"),
+  );
+  const items = navItems.filter((item) => item.to !== "/subscriptions" || hasSubscriptions);
 
   return (
     <header className="absolute inset-x-0 top-0 z-50">
@@ -75,7 +91,7 @@ export function Navigation() {
 
         {/* Center nav */}
         <nav className="hidden flex-1 items-center justify-center gap-10 lg:flex">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active =
               (item.to === "/" && pathname === "/") ||
               (item.to !== "/" && pathname.startsWith(item.to));
