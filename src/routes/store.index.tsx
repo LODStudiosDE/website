@@ -31,7 +31,7 @@ import {
 } from "@/lib/tebex";
 
 import { categoriesQuery } from "@/lib/queries";
-import { isSecondarySubscriptionTerm } from "@/lib/subscriptions";
+import { isSecondarySubscriptionTerm, normName, subscriptionPlanGroups } from "@/lib/subscriptions";
 
 export const Route = createFileRoute("/store/")({
   head: () => ({
@@ -51,12 +51,16 @@ export const Route = createFileRoute("/store/")({
     ],
     links: [{ rel: "canonical", href: "/store" }],
   }),
-  // `/store?category=<id>` opens the store with that category already ticked in
-  // the filter (used by "View plan" on /subscriptions). It stays a normal filter:
-  // the visitor can untick it or add more categories afterwards.
-  validateSearch: (search: Record<string, unknown>): { category?: number } => {
+  // `/store?plan=<name>` opens the store with that subscription's "included in"
+  // filter already ticked (used by "View plan" on /subscriptions): the list then
+  // shows the products the plan includes. `?category=<id>` does the same for a
+  // category. Both stay normal filters the visitor can untick or extend.
+  validateSearch: (search: Record<string, unknown>): { category?: number; plan?: string } => {
+    const out: { category?: number; plan?: string } = {};
     const id = Number(search.category);
-    return Number.isInteger(id) && id > 0 ? { category: id } : {};
+    if (Number.isInteger(id) && id > 0) out.category = id;
+    if (typeof search.plan === "string" && search.plan.trim()) out.plan = search.plan.trim();
+    return out;
   },
   loader: ({ context }) => context.queryClient.ensureQueryData(categoriesQuery),
   component: StorePage,
@@ -76,19 +80,24 @@ const PAGE_SIZE = 12;
 function StorePage() {
   const t = useT();
   const { data: categories } = useSuspenseQuery(categoriesQuery);
-  const { category: linkedCategory } = Route.useSearch();
+  const { category: linkedCategory, plan: linkedPlan } = Route.useSearch();
   // Read on the first render, so a link straight to a category is already
   // filtered in the server-rendered page — no flash of the unfiltered list.
   const [selectedCats, setSelectedCats] = useState<number[]>(
     linkedCategory ? [linkedCategory] : [],
   );
+  // Subscription plans ticked in the "included in" filter, by normalised name.
+  const [selectedPlans, setSelectedPlans] = useState<string[]>(
+    linkedPlan ? [normName(linkedPlan)] : [],
+  );
   const [page, setPage] = useState(1);
 
-  // Following another category link while already on /store re-applies it.
+  // Following another category / plan link while already on /store re-applies it.
   useEffect(() => {
     setSelectedCats(linkedCategory ? [linkedCategory] : []);
+    setSelectedPlans(linkedPlan ? [normName(linkedPlan)] : []);
     setPage(1);
-  }, [linkedCategory]);
+  }, [linkedCategory, linkedPlan]);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "popular" | "low" | "high">("newest");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -116,6 +125,13 @@ function StorePage() {
     // reached through the term selector on the plan's page.
     const all = Array.from(map.values());
     return all.filter((pkg) => !isSecondarySubscriptionTerm(pkg, all));
+  }, [categories]);
+
+  // Subscription plans and the products each one includes.
+  const planGroups = useMemo(() => {
+    const map = new Map<number, TebexPackage>();
+    for (const cat of categories) for (const pkg of cat.packages ?? []) map.set(pkg.id, pkg);
+    return subscriptionPlanGroups(Array.from(map.values())).filter((g) => g.included.length > 0);
   }, [categories]);
 
   const priceBounds = useMemo(() => {
@@ -170,6 +186,13 @@ function StorePage() {
       selectedCats.length === 0
         ? allPackages
         : allPackages.filter((p) => selectedCats.includes(p.category.id));
+    if (selectedPlans.length > 0) {
+      const allowed = new Set<number>();
+      for (const g of planGroups) {
+        if (selectedPlans.includes(normName(g.base))) for (const p of g.included) allowed.add(p.id);
+      }
+      list = list.filter((p) => allowed.has(p.id));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((p) => p.name.toLowerCase().includes(q));
@@ -199,7 +222,7 @@ function StorePage() {
         break;
     }
     return list;
-  }, [allPackages, selectedCats, search, sort, minPrice, maxPrice]);
+  }, [allPackages, selectedCats, selectedPlans, planGroups, search, sort, minPrice, maxPrice]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -240,6 +263,7 @@ function StorePage() {
                 <button
                   onClick={() => {
                     setSelectedCats([]);
+                    setSelectedPlans([]);
                     setSearch("");
                     setMinPrice("");
                     setMaxPrice("");
@@ -251,14 +275,15 @@ function StorePage() {
                 </button>
               </div>
 
-              <FilterSection title={t("store.filters.category")} defaultOpen count={selectedCats.length}>
+              <FilterSection title={t("store.filters.category")} defaultOpen count={selectedCats.length + selectedPlans.length}>
                 <div className="space-y-2">
                   <FilterCheckbox
                     id="cat-all"
                     label={t("store.filters.allAssets")}
-                    checked={selectedCats.length === 0}
+                    checked={selectedCats.length === 0 && selectedPlans.length === 0}
                     onCheckedChange={() => {
                       setSelectedCats([]);
+                      setSelectedPlans([]);
                       setPage(1);
                     }}
                     count={allPackages.length}
@@ -286,6 +311,32 @@ function StorePage() {
                       />
                     );
                   })}
+                  {planGroups.length > 0 && (
+                    <>
+                      <div className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-store-muted">
+                        {t("store.filters.includedIn")}
+                      </div>
+                      {planGroups.map((g) => {
+                        const key = normName(g.base);
+                        const checked = selectedPlans.includes(key);
+                        return (
+                          <FilterCheckbox
+                            key={key}
+                            id={"plan-" + key.replace(/ /g, "-")}
+                            label={g.base}
+                            checked={checked}
+                            onCheckedChange={() => {
+                              setSelectedPlans((prev) =>
+                                checked ? prev.filter((k) => k !== key) : [...prev, key],
+                              );
+                              setPage(1);
+                            }}
+                            count={g.included.filter((p) => allPackages.some((a) => a.id === p.id)).length}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
               </FilterSection>
 

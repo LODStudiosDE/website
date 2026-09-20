@@ -20,8 +20,9 @@ import { categoriesQuery } from "@/lib/queries";
 import { stripHtml, type TebexPackage } from "@/lib/tebex";
 import { parseDescription } from "@/lib/description-parser";
 import {
-  SUBSCRIPTION_RULES,
   SUBSCRIPTION_TERMS,
+  subscriptionPerks,
+  type Perk,
   subscriptionVariants,
   type SubscriptionVariant,
 } from "@/lib/subscriptions";
@@ -53,9 +54,6 @@ function SubscriptionsLoading() {
   );
 }
 
-/** One line of "what you get". Entries that name a store product link to it. */
-type Perk = { label: string; pkg: TebexPackage | null };
-
 type Plan = {
   base: string;
   /** The package the card is built from (shortest available term). */
@@ -71,44 +69,12 @@ function packageImage(pkg: TebexPackage): string | null {
   return pkg.image ?? pkg.media?.find((m) => m.primary)?.url ?? pkg.media?.[0]?.url ?? null;
 }
 
-/** Comparison form for product names: case, accents and punctuation must not decide a match. */
-const normName = (s: string) =>
-  s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
-
-/**
- * Turns one line of the plan description into a perk. A line that names a store
- * product ("Pillbox Medical Department") becomes a link to it; the shop writes
- * these lists by hand, so the names are close but rarely exact ("Carmeet" vs.
- * "Carmeet Autopia") — hence the contains-match on top of the exact one.
- */
-function toPerk(label: string, singles: TebexPackage[]): Perk {
-  const q = normName(label);
-  if (q.length < 3) return { label, pkg: null };
-  const exact = singles.find((p) => normName(p.name) === q);
-  if (exact) return { label, pkg: exact };
-  const partial = singles.filter((p) => {
-    const n = normName(p.name);
-    return n.length >= 4 && (q.includes(n) || n.includes(q));
-  });
-  // Only an unambiguous partial match counts — two candidates mean we guessed.
-  return { label, pkg: partial.length === 1 ? partial[0] : null };
-}
-
 function buildPlans(all: TebexPackage[]): Plan[] {
   const subs = all.filter((p) => p.type === "subscription");
   const singles = all.filter((p) => p.type === "single");
 
-  const perksOf = (anchor: TebexPackage, coveredIds: Set<number>): Perk[] => {
-    // What the shop wrote into the Tebex description is authoritative.
-    const written = parseDescription(anchor.description ?? "", anchor.name).features;
-    if (written.length > 0) return written.map((f) => toPerk(f, singles));
-    // No list in the description: fall back to the keyword coverage rules.
-    const rule = SUBSCRIPTION_RULES.find((r) => coveredIds.has(r.packageId));
-    if (!rule) return [];
-    return singles
-      .filter((s) => rule.keywords.some((k) => s.name.toLowerCase().includes(k.toLowerCase())))
-      .map((p) => ({ label: p.name, pkg: p }));
-  };
+  const perksOf = (anchor: TebexPackage, coveredIds: Set<number>): Perk[] =>
+    subscriptionPerks(anchor, coveredIds, singles);
 
   const seen = new Set<string>();
   const out: Plan[] = [];
@@ -493,7 +459,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
             ticked in the filter — the same for every plan. */}
         <Link
           to="/store"
-          search={{ category: plan.anchor.category.id }}
+          search={{ plan: plan.base }}
           className="group/link mt-auto inline-flex items-center justify-center gap-1.5 pt-6 text-[11px] font-bold uppercase tracking-[0.16em] text-white/40 transition hover:text-white"
         >
           {t("subs.viewPlan")}

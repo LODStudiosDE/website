@@ -7,6 +7,7 @@
 // the live Tebex package (see findSubscriptionsForProduct) — only the coverage
 // rules live here.
 import type { TebexPackage } from "./tebex";
+import { parseDescription } from "./description-parser";
 
 export type SubscriptionRule = {
   // Tebex package id of the subscription plan.
@@ -163,4 +164,88 @@ export function findSubscriptionsForProduct(
     if (pkg) out.push(pkg);
   }
   return out;
+}
+
+// ── what a plan includes ────────────────────────────────────────────────────
+
+/** One line of "what you get". Entries that name a store product carry it in `pkg`. */
+export type Perk = { label: string; pkg: TebexPackage | null };
+
+/** Comparison form for product names: case, accents and punctuation must not decide a match. */
+export const normName = (s: string) =>
+  s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Turns one line of a plan description into a perk. A line that names a store
+ * product ("Pillbox Medical Department") is linked to it; the shop writes these
+ * lists by hand, so the names are close but rarely exact ("Carmeet" vs.
+ * "Carmeet Autopia") — hence the contains-match on top of the exact one.
+ */
+export function toPerk(label: string, singles: TebexPackage[]): Perk {
+  const q = normName(label);
+  if (q.length < 3) return { label, pkg: null };
+  const exact = singles.find((p) => normName(p.name) === q);
+  if (exact) return { label, pkg: exact };
+  const partial = singles.filter((p) => {
+    const n = normName(p.name);
+    return n.length >= 4 && (q.includes(n) || n.includes(q));
+  });
+  // Only an unambiguous partial match counts — two candidates mean we guessed.
+  return { label, pkg: partial.length === 1 ? partial[0] : null };
+}
+
+/** The perks of the plan whose sold packages are `coveredIds`, built from `anchor`'s description. */
+export function subscriptionPerks(
+  anchor: TebexPackage,
+  coveredIds: Set<number>,
+  singles: TebexPackage[],
+): Perk[] {
+  // What the shop wrote into the Tebex description is authoritative.
+  const written = parseDescription(anchor.description ?? "", anchor.name).features;
+  if (written.length > 0) return written.map((f) => toPerk(f, singles));
+  // No list in the description: fall back to the keyword coverage rules.
+  const rule = SUBSCRIPTION_RULES.find((r) => coveredIds.has(r.packageId));
+  if (!rule) return [];
+  return singles
+    .filter((s) => rule.keywords.some((k) => s.name.toLowerCase().includes(k.toLowerCase())))
+    .map((p) => ({ label: p.name, pkg: p }));
+}
+
+export type SubscriptionPlanGroup = {
+  base: string;
+  /** The plan's shortest-term package. */
+  anchor: TebexPackage;
+  /** Every package (all terms) that belongs to the plan. */
+  ids: Set<number>;
+  /** The store products the plan includes. */
+  included: TebexPackage[];
+};
+
+/** Every plan (all its terms folded together) with the products it includes. */
+export function subscriptionPlanGroups(all: TebexPackage[]): SubscriptionPlanGroup[] {
+  const subs = all.filter((p) => p.type === "subscription");
+  const singles = all.filter((p) => p.type === "single");
+  const groups = new Map<string, { base: string; pkgs: { pkg: TebexPackage; months: number }[] }>();
+  for (const pkg of subs) {
+    const info = subscriptionTerm(pkg.name);
+    const key = normName(info.base);
+    const g = groups.get(key) ?? { base: info.base, pkgs: [] };
+    g.pkgs.push({ pkg, months: info.months });
+    groups.set(key, g);
+  }
+  return Array.from(groups.values())
+    .map((g): SubscriptionPlanGroup => {
+      const anchor = [...g.pkgs].sort((a, b) => a.months - b.months)[0].pkg;
+      const ids = new Set(g.pkgs.map((x) => x.pkg.id));
+      const seen = new Set<number>();
+      const included: TebexPackage[] = [];
+      for (const perk of subscriptionPerks(anchor, ids, singles)) {
+        if (perk.pkg && !seen.has(perk.pkg.id)) {
+          seen.add(perk.pkg.id);
+          included.push(perk.pkg);
+        }
+      }
+      return { base: g.base, anchor, ids, included };
+    })
+    .sort((a, b) => a.anchor.order - b.anchor.order || a.anchor.total_price - b.anchor.total_price);
 }
