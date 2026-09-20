@@ -632,3 +632,51 @@ export async function writeReferralDoc(
   }
   return (data?.length ?? 0) > 0 ? "ok" : "conflict";
 }
+
+// ── payment history snapshot (Supabase Storage) ─────────────────────────────
+//  Tebex has no "give me everything" call: the history is 240+ pages, far too
+//  many for one serverless request. The crawled history is therefore kept as one
+//  JSON file in a private storage bucket (no schema change needed) and only
+//  topped up with the newest pages on demand.
+
+const PAYMENTS_BUCKET = "payments-cache";
+const PAYMENTS_FILE = "history-v1.json";
+
+/** `null` = nothing stored yet (or unreadable). */
+export async function readPaymentsSnapshot<T>(): Promise<{ at: number; payments: T[] } | null> {
+  if (!dbConfigured()) return null;
+  try {
+    const { data, error } = await db().storage.from(PAYMENTS_BUCKET).download(PAYMENTS_FILE);
+    if (error || !data) return null;
+    const parsed = JSON.parse(await data.text()) as { at?: number; payments?: T[] };
+    if (!Array.isArray(parsed.payments)) return null;
+    return { at: Number(parsed.at) || 0, payments: parsed.payments };
+  } catch {
+    return null;
+  }
+}
+
+/** Best effort: a failed save only means the next request tops up again. */
+export async function writePaymentsSnapshot<T>(payments: T[]): Promise<boolean> {
+  if (!dbConfigured()) return false;
+  try {
+    const storage = db().storage;
+    const body = new Blob([JSON.stringify({ at: Date.now(), payments })], {
+      type: "application/json",
+    });
+    let { error } = await storage
+      .from(PAYMENTS_BUCKET)
+      .upload(PAYMENTS_FILE, body, { upsert: true, contentType: "application/json" });
+    if (error && /not found|bucket/i.test(error.message)) {
+      await storage.createBucket(PAYMENTS_BUCKET, { public: false });
+      ({ error } = await storage
+        .from(PAYMENTS_BUCKET)
+        .upload(PAYMENTS_FILE, body, { upsert: true, contentType: "application/json" }));
+    }
+    if (error) fail("writePaymentsSnapshot", error);
+    return !error;
+  } catch (e) {
+    fail("writePaymentsSnapshot", e as Error);
+    return false;
+  }
+}

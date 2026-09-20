@@ -109,7 +109,7 @@ function PurchasesPage() {
           />
         ) : (
           <ul className="flex flex-col divide-y divide-white/5 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-2">
-            {data.purchases.slice(0, 5).map((p, i) => (
+            {data.purchases.map((p, i) => (
               <PurchaseRow key={`${p.txnId}-${i}`} purchase={p} />
             ))}
           </ul>

@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "db:check": "node --env-file=.env scripts/db-check.mjs",
     "db:migrate": "node --env-file=.env scripts/migrate-jsonbin-to-supabase.mjs",
-    "db:founder": "node --env-file=.env scripts/db-set-founder.mjs"
+    "db:founder": "node --env-file=.env scripts/db-set-founder.mjs",
+    "db:payments": "node --env-file=.env scripts/sync-payments.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

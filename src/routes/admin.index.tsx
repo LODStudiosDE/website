@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   ShoppingBag,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminPageHeader, EmptyNotice, Panel, PanelTitle } from "@/components/admin/ui";
 import { fetchRecentPurchases } from "@/lib/admin/admin.functions";
@@ -89,14 +89,16 @@ function RecentPurchases({ basketIdent }: { basketIdent: string }) {
     queryFn: () => fetchRecentPurchases({ data: { basketIdent } }),
     refetchInterval: 30_000,
   });
-  const purchases = query.data?.purchases ?? [];
+  const all = query.data?.purchases ?? [];
+  const [visible, setVisible] = useState(10);
+  const purchases = all.slice(0, visible);
 
   return (
     <Panel className="mb-8">
       <PanelTitle
         icon={<ShoppingBag className="h-5 w-5" />}
         title="Letzte Käufe"
-        sub="Die neuesten Käufe im Shop, inklusive manuell erstellter Zahlungen."
+        sub="Alle neuesten Käufe im Shop, auch kostenlose und manuell erstellte Zahlungen."
         right={
           <Link
             to="/admin/logs"
@@ -120,14 +122,28 @@ function RecentPurchases({ basketIdent }: { basketIdent: string }) {
                 <p className="truncate text-sm font-medium text-white">{p.packageName}</p>
                 <p className="truncate text-[11px] text-white/40">
                   {p.buyer} · {formatDateTime(p.date)}
+                  {p.status && !/^complete/i.test(p.status) ? ` · ${p.status}` : ""}
                 </p>
               </div>
               <span className="shrink-0 text-sm font-semibold text-[#FF3B3B]">
-                {p.amount != null ? formatPrice(p.amount, p.currency) : "—"}
+                {p.amount != null
+                  ? p.amount === 0
+                    ? "Gratis"
+                    : formatPrice(p.amount, p.currency)
+                  : "—"}
               </span>
             </li>
           ))}
         </ul>
+      )}
+      {all.length > visible && (
+        <button
+          type="button"
+          onClick={() => setVisible((v) => v + 20)}
+          className="mt-4 w-full rounded-lg border border-white/10 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/60 transition-colors hover:border-white/25 hover:text-white"
+        >
+          Mehr anzeigen
+        </button>
       )}
     </Panel>
   );

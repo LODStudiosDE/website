@@ -33,6 +33,7 @@ import {
   findWishlist,
   readAllWishlists,
   readLogs,
+  readPaymentsSnapshot,
   readTemplates,
   readSubscribers,
   saveWishlist,
@@ -40,6 +41,7 @@ import {
   templatesConfigured,
   subscribersConfigured,
   upsertTemplate,
+  writePaymentsSnapshot,
   type EmailTemplate,
   type LogEntry,
   type SubscriberEntry,
@@ -309,7 +311,10 @@ function refreshPayments(): Promise<PaymentsResult> {
     .then((result) => {
       // An incomplete history must never replace a complete one, and is never
       // cached — otherwise the missing buyers stay "not found" until it expires.
-      if (result.complete) _paymentsCache = { at: Date.now(), data: result.payments };
+      if (result.complete) {
+        _paymentsCache = { at: Date.now(), data: result.payments };
+        void writePaymentsSnapshot(result.payments);
+      }
       return result;
     })
     .finally(() => {
@@ -345,13 +350,67 @@ const paymentKey = (p: TebexPayment) => String(p.id ?? p.txn_id ?? "");
 
 // Payments in `recent` win over the same payment in `base` (fresher status).
 function mergePayments(recent: TebexPayment[], base: TebexPayment[]): TebexPayment[] {
-  const seen = new Set(recent.map(paymentKey).filter(Boolean));
-  return [...recent, ...base.filter((p) => !seen.has(paymentKey(p)))];
+  const seen = new Set<string>();
+  const out: TebexPayment[] = [];
+  for (const p of [...recent, ...base]) {
+    const key = paymentKey(p);
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(p);
+  }
+  return out;
 }
 
 // How long a request may wait for the full history before answering with what
 // it has (newest payments + whatever was cached).
 const HISTORY_WAIT_MS = 6_000;
+
+// Tops the stored history up with the newest pages: the first pages are always
+// re-read (new payments, refunds of recent ones), further pages only while they
+// still contain payments we did not know yet.
+const TOPUP_MIN_PAGES = 4;
+const TOPUP_MAX_PAGES = 30;
+let _topUpInflight: Promise<TebexPayment[]> | null = null;
+
+function topUpHistory(base: TebexPayment[]): Promise<TebexPayment[]> {
+  if (_topUpInflight) return _topUpInflight;
+  _topUpInflight = (async () => {
+    const known = new Set(base.map(paymentKey).filter(Boolean));
+    const baseById = new Map(base.map((p) => [paymentKey(p), p]));
+    const fetched: TebexPayment[] = [];
+    let changed = false;
+    let more = true;
+    for (let page = 1; more && page <= TOPUP_MAX_PAGES; ) {
+      const batch = page === 1 ? TOPUP_MIN_PAGES : 1;
+      const results = await Promise.all(
+        Array.from({ length: batch }, (_, i) => fetchPaymentsPage(page + i)),
+      );
+      more = false;
+      for (const r of results) {
+        if (r === null) return base; // rate limited etc.: keep what we have
+        const rows = Array.isArray(r) ? r : (r.data ?? []);
+        const fresh = rows.filter((p) => !known.has(paymentKey(p)));
+        if (fresh.length > 0) changed = true;
+        fresh.forEach((p) => known.add(paymentKey(p)));
+        fetched.push(...rows);
+        more = fresh.length > 0 && rows.length > 0;
+      }
+      page += batch;
+    }
+    // A refund / chargeback changes the status of an already known payment.
+    changed ||= fetched.some((p) => {
+      const old = baseById.get(paymentKey(p));
+      return old !== undefined && String(old.status) !== String(p.status);
+    });
+    const merged = mergePayments(fetched, base);
+    _paymentsCache = { at: Date.now(), data: merged };
+    if (changed) void writePaymentsSnapshot(merged);
+    return merged;
+  })().finally(() => {
+    _topUpInflight = null;
+  });
+  return _topUpInflight;
+}
 
 export async function fetchAllPaymentsDetailed(
   opts: { waitMs?: number } = {},
@@ -363,12 +422,22 @@ export async function fetchAllPaymentsDetailed(
     return { payments: mergePayments(await recentP, _paymentsCache.data), complete: true };
   }
   if (_paymentsCache && age < PAYMENTS_MAX_AGE) {
-    void refreshPayments().catch(() => {}); // refresh in the background
+    void topUpHistory(_paymentsCache.data).catch(() => {}); // refresh in the background
     return { payments: mergePayments(await recentP, _paymentsCache.data), complete: true };
   }
 
-  // No (usable) full history: let the crawl run, but never wait for it longer
-  // than the budget — the newest payments are enough to answer.
+  // Cold start: the stored history (Supabase) is the complete base — one file
+  // download instead of 240+ Tebex requests.
+  const snapshot = await readPaymentsSnapshot<TebexPayment>();
+  if (snapshot) {
+    _paymentsCache = { at: Date.now(), data: snapshot.payments };
+    void topUpHistory(snapshot.payments).catch(() => {});
+    return { payments: mergePayments(await recentP, snapshot.payments), complete: true };
+  }
+
+  // Nothing stored yet: crawl everything (the result is stored for next time),
+  // but never wait for it longer than the budget — the newest payments are
+  // enough to answer.
   const crawl = refreshPayments();
   void crawl.catch(() => {});
   const waited = await Promise.race([
@@ -791,7 +860,8 @@ export type RecentPurchase = {
   status: string | null;
 };
 
-/** The newest purchases of the whole store: real Tebex payments + admin-created ones. */
+/** The newest purchases of the whole store — everything, free ones included:
+ *  real Tebex payments + admin-created ones. */
 export const fetchRecentPurchases = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => basketInput.parse(input))
   .handler(async ({ data }): Promise<{ configured: boolean; purchases: RecentPurchase[] }> => {
@@ -803,9 +873,9 @@ export const fetchRecentPurchases = createServerFn({ method: "POST" })
     const rows: RecentPurchase[] = [];
 
     if (cfg.tebexSecret) {
-      for (const p of await fetchRecentPayments()) {
+      for (const p of (await fetchAllPaymentsDetailed()).payments) {
         const row = mapLookup(p);
-        if (!row.txnId || /declin/i.test(String(row.status ?? ""))) continue;
+        if (!row.txnId) continue;
         rows.push({
           txnId: row.txnId,
           date: row.date,
@@ -834,7 +904,7 @@ export const fetchRecentPurchases = createServerFn({ method: "POST" })
       }
     }
     rows.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-    return { configured: cfg.tebexSecret || cfg.store, purchases: rows.slice(0, 10) };
+    return { configured: cfg.tebexSecret || cfg.store, purchases: rows.slice(0, 100) };
   });
 
 export const adminLookup = createServerFn({ method: "POST" })
