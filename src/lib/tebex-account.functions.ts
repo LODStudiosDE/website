@@ -14,14 +14,14 @@ import { paymentsForCfxId, type LookupPurchase } from "./admin/payments.server";
 
 const profileInput = z.object({ basketIdent: z.string().min(1) });
 
-const PLUGIN_BASE = "https://plugin.tebex.io";
-
 export type ProfilePurchase = {
   txnId: string;
   date: string | null; // ISO string
   amount: number | null;
   currency: string | null;
   status: string | null;
+  /** "Tebex Checkout", "Manual", "Gratis (Admin)" … — shown when there is no product name. */
+  method: string | null;
   products: string[];
 };
 
@@ -92,98 +92,48 @@ async function resolveBasketUser(
   };
 }
 
-// Full purchase history via the Game Server API player lookup (X-Tebex-Secret).
+// Everything this customer received: every row of the complete Tebex payment
+// history whose player is this CFX id — regular purchases, 0 € / 100 %-coupon
+// purchases and payments the shop owner created in Tebex ("Manual" gateway) —
+// plus payments and gifts created in our own admin panel.
+//
+// The Game Server "player lookup" (/user/{id}) is deliberately NOT used any
+// more: it requires the Tebex Plus plan, which this store does not have, so it
+// answered HTTP 400 for every customer and the profile never got a single row
+// from it. Its removal also drops the fuzzy time/amount merge that guessed
+// which lookup rows matched history rows.
 async function fetchPurchases(
   usernameId: string,
 ): Promise<{ purchases: ProfilePurchase[]; total: number; currency: string; pending?: boolean }> {
-  const secret = process.env.TEBEX_SECRET;
-  if (!secret) return { purchases: [], total: 0, currency: "EUR" };
+  if (!process.env.TEBEX_SECRET) return { purchases: [], total: 0, currency: "EUR" };
 
-  // The player lookup only knows regular purchases. Payments the shop owner
-  // created for the customer (free / 0 € ones, gifts, manual payments) only show
-  // up in the full payment history, so both sources are merged below.
-  // Loading that history can take a while right after a server start. The
-  // profile only waits briefly for it: the newest payments are always included,
-  // and the page asks again until the full list has arrived (`pending`).
-  const [res, received] = await Promise.all([
-    fetch(`${PLUGIN_BASE}/user/${encodeURIComponent(usernameId)}`, {
-      headers: { "X-Tebex-Secret": secret, Accept: "application/json" },
-    }).catch(() => null),
-    paymentsForCfxId(usernameId, { waitMs: 2000 }).catch(() => null),
-  ]);
+  // The history is served from the stored snapshot and topped up with the
+  // newest pages inside this request (bounded), so the answer is complete and
+  // includes purchases made moments ago. `pending` only stays true while there
+  // is no stored history yet at all; the page then asks again.
+  const received = await paymentsForCfxId(usernameId, { waitMs: 2000 }).catch(() => null);
   const pending = received === null || !received.complete;
 
-  const body = res?.ok
-    ? ((await res.json().catch(() => ({}))) as { payments?: Array<Record<string, unknown>> })
-    : {};
-  const payments = Array.isArray(body.payments) ? body.payments : [];
-
-  const normalized = payments
-    .map((p) => {
-      const rawPackages = (p.packages ?? p.package) as unknown;
-      const products: string[] = Array.isArray(rawPackages)
-        ? rawPackages
-            .map((pkg) =>
-              typeof pkg === "string"
-                ? pkg
-                : ((pkg as Record<string, unknown>)?.name as string) ?? "",
-            )
-            .filter(Boolean)
-        : [];
-      return {
-        txnId: String(p.txnId ?? p.txn_id ?? p.id ?? ""),
-        date: toIso(p.time ?? p.date ?? p.created_at),
-        amount: toNumber(p.price ?? p.amount),
-        currency: (p.currency as string) ?? null,
-        status: ((p.status as string) ?? null) as string | null,
-        products,
-        _sort: toNumber(p.time) ?? 0,
-      };
-    });
-
-  // Merge: the history row wins (it carries product names and the real amount).
-  // The two APIs name the same payment differently (txn id vs. payment id), so
-  // a lookup row counts as "already there" when time and amount agree.
-  const history = received?.purchases ?? [];
-  const sameAsHistory = (p: (typeof normalized)[number]) =>
-    history.some((r) => {
-      const ms = r.date ? Date.parse(r.date) : NaN;
-      return (
-        r.txnId === p.txnId ||
-        (Number.isFinite(ms) && Math.abs(ms / 1000 - p._sort) <= 300 && (r.amount ?? 0) === (p.amount ?? 0))
-      );
-    });
-  const byTxn = new Map(normalized.filter((p) => !sameAsHistory(p)).map((p) => [p.txnId, p]));
-  for (const r of history) {
-    const ms = r.date ? Date.parse(r.date) : NaN;
-    byTxn.set(r.txnId, {
+  const purchases: ProfilePurchase[] = (received?.purchases ?? [])
+    .map((r: LookupPurchase) => ({
       txnId: r.txnId,
       date: r.date,
       amount: r.amount ?? 0,
       currency: r.currency ?? "EUR",
-      status: (r.status == null ? null : String(r.status)) as string,
-      products:
-        r.packageName && r.packageName !== "—"
-          ? r.packageName.split(", ")
-          : [],
-      _sort: Number.isFinite(ms) ? ms / 1000 : 0,
-    });
-  }
-  const merged = [...byTxn.values()].sort((a, b) => b._sort - a._sort);
+      status: r.status == null ? null : String(r.status),
+      method: r.method,
+      products: r.packageName && r.packageName !== "—" ? r.packageName.split(", ") : [],
+    }))
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
-  const currency = merged.find((p) => p.currency)?.currency ?? "EUR";
+  const currency = purchases.find((p) => p.currency)?.currency ?? "EUR";
   // Only money the customer really paid: no refunds / chargebacks, and nothing
   // an admin created for them in the panel ("manual-…" / "gift-…").
-  const total = merged
+  const total = purchases
     .filter((p) => !/refund|chargeback/i.test(p.status ?? "") && !/^(manual|gift)-/.test(p.txnId))
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
-  return {
-    purchases: merged.map(({ _sort, ...rest }) => rest),
-    total,
-    currency,
-    pending,
-  };
+  return { purchases, total, currency, pending };
 }
 
 // Tiered categories (subscriptions) + the user's active tier per category.

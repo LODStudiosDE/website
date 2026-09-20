@@ -471,23 +471,30 @@ function PurchasesList({
 }
 
 function PurchaseRow({ purchase }: { purchase: ProfilePurchase }) {
+  const t = useT();
+  // Payments created in the Tebex panel often carry no package: name the
+  // payment method instead of showing a dash.
+  const title =
+    purchase.products.length > 0 ? purchase.products.join(", ") : (purchase.method ?? "—");
+  const flagged = purchase.status && !/^complete$/i.test(purchase.status) ? purchase.status : null;
   return (
     <li className="flex items-center gap-4 rounded-xl px-2 py-3 transition hover:bg-white/[0.03]">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#FF3B3B]/10 text-[#FF3B3B] ring-1 ring-inset ring-[#FF3B3B]/15">
         <ShoppingBag className="h-[18px] w-[18px]" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-white">
-          {purchase.products.length > 0 ? purchase.products.join(", ") : "—"}
-        </p>
+        <p className="truncate text-sm font-medium text-white">{title}</p>
         <p className="truncate text-[11px] text-white/40">
           {formatDateTime(purchase.date)} · {purchase.txnId || "—"}
+          {flagged ? ` · ${flagged}` : ""}
         </p>
       </div>
       <span className="shrink-0 text-sm font-semibold text-[#FF3B3B]">
-        {purchase.amount != null
-          ? formatPrice(purchase.amount, purchase.currency ?? "EUR")
-          : "—"}
+        {purchase.amount == null
+          ? "—"
+          : purchase.amount === 0
+            ? t("cart.free")
+            : formatPrice(purchase.amount, purchase.currency ?? "EUR")}
       </span>
     </li>
   );

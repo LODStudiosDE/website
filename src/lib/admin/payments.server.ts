@@ -246,27 +246,41 @@ function topUpHistory(base: TebexPayment[]): Promise<TebexPayment[]> {
   return _topUpInflight;
 }
 
+// How long a request waits for the top-up before answering with what it has.
+// The top-up has to run INSIDE the request: on a serverless host nothing keeps
+// running once the response is sent, so a fire-and-forget refresh never
+// finished and the history never moved past the stored snapshot. The first
+// batch (the 100 newest payments) takes well under a second, so in practice
+// the answer includes everything recent.
+const TOPUP_WAIT_MS = 2_500;
+
+async function toppedUp(base: TebexPayment[], waitMs: number): Promise<TebexPayment[]> {
+  await Promise.race([topUpHistory(base).catch(() => base), sleep(waitMs)]);
+  return _paymentsCache?.data ?? base;
+}
+
 export async function fetchAllPaymentsDetailed(
   opts: { waitMs?: number } = {},
 ): Promise<PaymentsResult> {
   const recentP = fetchRecentPayments().catch(() => [] as TebexPayment[]);
   const age = _paymentsCache ? Date.now() - _paymentsCache.at : Infinity;
+  const topUpWait = opts.waitMs ?? TOPUP_WAIT_MS;
 
   if (_paymentsCache && age < PAYMENTS_FRESH) {
     return { payments: mergePayments(await recentP, _paymentsCache.data), complete: true };
   }
   if (_paymentsCache && age < PAYMENTS_MAX_AGE) {
-    void topUpHistory(_paymentsCache.data).catch(() => {}); // refresh in the background
-    return { payments: mergePayments(await recentP, _paymentsCache.data), complete: true };
+    const data = await toppedUp(_paymentsCache.data, topUpWait);
+    return { payments: mergePayments(await recentP, data), complete: true };
   }
 
   // Cold start: the stored history (Supabase) is the complete base — one file
-  // download instead of 240+ Tebex requests.
+  // download instead of 240+ Tebex requests — topped up with the newest pages.
   const snapshot = await readPaymentsSnapshot<TebexPayment>();
   if (snapshot) {
     _paymentsCache = { at: Date.now(), data: snapshot.payments };
-    void topUpHistory(snapshot.payments).catch(() => {});
-    return { payments: mergePayments(await recentP, snapshot.payments), complete: true };
+    const data = await toppedUp(snapshot.payments, topUpWait);
+    return { payments: mergePayments(await recentP, data), complete: true };
   }
 
   // Nothing stored yet: crawl everything (the result is stored for next time),
@@ -350,6 +364,9 @@ export type LookupPurchase = {
   packageName: string;
   buyer: string | null;
   cfxId: string | null;
+  /** Payment gateway ("Tebex Checkout", "Manual") or, for rows we created
+   *  ourselves, the method recorded in the log ("Gratis (Admin)"). */
+  method: string | null;
 };
 
 export function normName(value: string): string {
@@ -373,6 +390,7 @@ export function mapLookup(p: TebexPayment): LookupPurchase {
     packageName: pkg.name,
     buyer: p.player?.name ?? p.name ?? null,
     cfxId: p.player?.uuid != null ? String(p.player.uuid) : p.player?.id != null ? String(p.player.id) : null,
+    method: p.gateway?.name ?? null,
   };
 }
 
@@ -420,6 +438,7 @@ export function logToPurchase(l: LogEntry): LookupPurchase {
     packageName: l.packageName ?? l.detail ?? "Manuelle Zahlung",
     buyer: l.cfxName ?? null,
     cfxId: createdForCfxId(l), // who the payment was created for
+    method: l.paymentMethod ?? null,
   };
 }
 
