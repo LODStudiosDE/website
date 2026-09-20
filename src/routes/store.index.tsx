@@ -51,6 +51,13 @@ export const Route = createFileRoute("/store/")({
     ],
     links: [{ rel: "canonical", href: "/store" }],
   }),
+  // `/store?category=<id>` opens the store with that category already ticked in
+  // the filter (used by "View plan" on /subscriptions). It stays a normal filter:
+  // the visitor can untick it or add more categories afterwards.
+  validateSearch: (search: Record<string, unknown>): { category?: number } => {
+    const id = Number(search.category);
+    return Number.isInteger(id) && id > 0 ? { category: id } : {};
+  },
   loader: ({ context }) => context.queryClient.ensureQueryData(categoriesQuery),
   component: StorePage,
   pendingComponent: StoreLoading,
@@ -69,8 +76,19 @@ const PAGE_SIZE = 12;
 function StorePage() {
   const t = useT();
   const { data: categories } = useSuspenseQuery(categoriesQuery);
-  const [selectedCats, setSelectedCats] = useState<number[]>([]);
+  const { category: linkedCategory } = Route.useSearch();
+  // Read on the first render, so a link straight to a category is already
+  // filtered in the server-rendered page — no flash of the unfiltered list.
+  const [selectedCats, setSelectedCats] = useState<number[]>(
+    linkedCategory ? [linkedCategory] : [],
+  );
   const [page, setPage] = useState(1);
+
+  // Following another category link while already on /store re-applies it.
+  useEffect(() => {
+    setSelectedCats(linkedCategory ? [linkedCategory] : []);
+    setPage(1);
+  }, [linkedCategory]);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "popular" | "low" | "high">("newest");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -262,7 +280,9 @@ function StorePage() {
                           });
                           setPage(1);
                         }}
-                        count={c.packages?.length ?? 0}
+                        // Counted from what the list can actually show: the 2- and
+                        // 3-month packages of a subscription are hidden behind the plan.
+                        count={allPackages.filter((p) => p.category.id === c.id).length}
                       />
                     );
                   })}

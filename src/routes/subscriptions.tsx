@@ -489,10 +489,11 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
           </div>
         )}
 
+        {/* Opens the normal store with this plan's category (Subscriptions) already
+            ticked in the filter — the same for every plan. */}
         <Link
-          to="/store/$packageId"
-          params={{ packageId: String(pkg.id) }}
-          preload="render"
+          to="/store"
+          search={{ category: plan.anchor.category.id }}
           className="group/link mt-auto inline-flex items-center justify-center gap-1.5 pt-6 text-[11px] font-bold uppercase tracking-[0.16em] text-white/40 transition hover:text-white"
         >
           {t("subs.viewPlan")}
