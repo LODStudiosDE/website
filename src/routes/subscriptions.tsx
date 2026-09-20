@@ -142,7 +142,10 @@ function buildPlans(all: TebexPackage[]): Plan[] {
         packageImage(anchor) ?? perks.map((x) => x.pkg && packageImage(x.pkg)).find(Boolean) ?? null,
     });
   }
-  return out.sort((a, b) => a.anchor.order - b.anchor.order);
+  // Cheapest plan first, so the tiers read left to right in ascending order.
+  return out.sort(
+    (a, b) => a.anchor.order - b.anchor.order || a.anchor.total_price - b.anchor.total_price,
+  );
 }
 
 function SubscriptionsPage() {
@@ -156,27 +159,14 @@ function SubscriptionsPage() {
     return buildPlans(Array.from(byId.values()));
   }, [categories]);
 
-  // Terms at least one plan offers — the switcher never shows a dead option.
+  // The terms every card offers as a choice: 1 and 3 months always (a term a
+  // plan does not have yet shows as "soon" instead of disappearing), 2 months
+  // only once some plan really sells it. Same list on every card, so they align.
   const terms = useMemo(() => {
-    const offered = new Set<number>();
+    const offered = new Set<number>([1, 3]);
     for (const p of plans) for (const v of p.variants ?? []) if (v.pkg) offered.add(v.months);
     return SUBSCRIPTION_TERMS.filter((m) => offered.has(m));
   }, [plans]);
-
-  const [months, setMonths] = useState<number>(1);
-  // The plan with the biggest saving at the selected term gets the spotlight;
-  // with a single plan that is simply the one plan.
-  const bestId = useMemo(() => {
-    let best: { id: number; save: number } | null = null;
-    for (const p of plans) {
-      const v = p.variants?.find((x) => x.months === months && x.pkg);
-      if (v && v.savePercent > (best?.save ?? 0)) best = { id: p.anchor.id, save: v.savePercent };
-    }
-    return best?.id ?? plans[Math.min(1, plans.length - 1)]?.anchor.id ?? null;
-  }, [plans, months]);
-
-  const termLabel = (n: number) =>
-    n === 1 ? t("subs.term.month") : t("subs.term.months").replace("{n}", String(n));
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#0C0C0D] text-white">
@@ -213,46 +203,6 @@ function SubscriptionsPage() {
             </div>
           ) : (
             <>
-            {/* Term switcher — every card compares at the same term */}
-            {terms.length > 1 && (
-              <div className="mb-10 flex flex-col items-center gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/40">
-                  {t("subs.term.label")}
-                </span>
-                <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] p-1">
-                  {terms.map((m) => {
-                    const active = m === months;
-                    const best = Math.max(
-                      0,
-                      ...plans.map(
-                        (p) => p.variants?.find((v) => v.months === m && v.pkg)?.savePercent ?? 0,
-                      ),
-                    );
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setMonths(m)}
-                        aria-pressed={active}
-                        className={`relative rounded-full px-5 py-2 text-[12px] font-bold uppercase tracking-[0.14em] transition-all duration-300 ${
-                          active
-                            ? "bg-gradient-to-r from-[#FF3B3B] to-[#C72C2C] text-white shadow-[0_8px_24px_-10px_rgba(255,59,59,0.8)]"
-                            : "text-white/50 hover:text-white"
-                        }`}
-                      >
-                        {termLabel(m)}
-                        {best > 0 && (
-                          <span className={active ? "ml-1.5 text-white/80" : "ml-1.5 text-[#FF3B3B]"}>
-                            −{best}%
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             <div
               className={`grid items-start gap-6 ${
                 plans.length === 1
@@ -263,13 +213,7 @@ function SubscriptionsPage() {
               }`}
             >
               {plans.map((plan, i) => (
-                <PlanCard
-                  key={plan.anchor.id}
-                  plan={plan}
-                  months={months}
-                  featured={plan.anchor.id === bestId}
-                  index={i}
-                />
+                <PlanCard key={plan.anchor.id} plan={plan} terms={terms} index={i} />
               ))}
             </div>
 
@@ -289,35 +233,17 @@ function SubscriptionsPage() {
 
 const VISIBLE_PERKS = 7;
 
-function PlanCard({
-  plan,
-  months,
-  featured,
-  index,
-}: {
-  plan: Plan;
-  months: number;
-  featured: boolean;
-  index: number;
-}) {
+function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: number }) {
   const t = useT();
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const available = plan.variants?.filter((v) => v.pkg) ?? [];
-  // The chosen term, or the closest one this plan actually offers.
-  const term =
-    available.find((v) => v.months === months) ??
-    available.reduce<SubscriptionVariant | null>(
-      (closest, v) =>
-        closest == null || Math.abs(v.months - months) < Math.abs(closest.months - months)
-          ? v
-          : closest,
-      null,
-    );
+  // Each card keeps its own term. It starts on the shortest one the plan sells.
+  const [chosen, setChosen] = useState<number | null>(null);
+  const term = available.find((v) => v.months === chosen) ?? available[0] ?? null;
   const pkg = term?.pkg ?? plan.anchor;
-  const offTerm = term != null && term.months !== months;
 
   const blurb = stripHtml(plan.anchor.description ?? "", 130);
   const perks = expanded ? plan.perks : plan.perks.slice(0, VISIBLE_PERKS);
@@ -348,14 +274,10 @@ function PlanCard({
 
   return (
     <article
-      className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border transition-all duration-500 ${
-        // Translucent so the video shows through, but tinted NEUTRAL black:
-        // a red tint over the footage is what produced the muddy red-brown
-        // strip along the top edge.
-        featured
-          ? "border-white/25 bg-gradient-to-b from-black/55 to-black/70 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] backdrop-blur-md"
-          : "border-white/[0.12] bg-gradient-to-b from-black/50 to-black/65 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] backdrop-blur-md hover:border-white/30"
-      }`}
+      // Translucent so the video shows through, but tinted NEUTRAL black: a red
+      // tint over the footage is what produced the muddy red-brown strip along
+      // the top edge. Every plan gets this same treatment.
+      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-gradient-to-b from-black/55 to-black/70 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] backdrop-blur-md transition-all duration-500 hover:border-white/40"
       style={{ animation: `fade-up 0.6s ${index * 0.08}s cubic-bezier(0.16,1,0.3,1) both` }}
     >
 
@@ -381,11 +303,7 @@ function PlanCard({
           )}
         </Link>
         <div className="min-w-0 flex-1">
-          <span
-            className={`block text-[10px] font-bold uppercase tracking-[0.24em] ${
-              featured ? "text-[#FF3B3B]" : "text-white/35"
-            }`}
-          >
+          <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-[#FF3B3B]">
             {t("store.sub.badge")}
           </span>
           <h3 className="mt-0.5 truncate font-display text-[26px] font-bold uppercase leading-tight tracking-tight text-white">
@@ -396,6 +314,50 @@ function PlanCard({
 
       <div className="relative flex flex-1 flex-col p-5 pt-4 sm:p-6 sm:pt-4">
         {blurb && <p className="text-[13px] leading-relaxed text-white/50">{blurb}</p>}
+
+        {/* Term: 1 / 3 months. Every term is its own Tebex package, so the price
+            and the saving shown are what Tebex charges — never a made-up number. */}
+        <div role="group" aria-label={t("subs.term.label")} className="mt-5 flex rounded-full border border-white/10 bg-black/40 p-1">
+          {terms.map((m) => {
+            const v = available.find((x) => x.months === m) ?? null;
+            const active = v != null && v.months === term?.months;
+            const base =
+              "relative flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-all duration-300";
+            if (!v) {
+              return (
+                <span
+                  key={m}
+                  aria-disabled="true"
+                  title={t("store.subterm.unavailable")}
+                  className={`${base} cursor-not-allowed text-white/25`}
+                >
+                  {termLabel(m)}
+                  <span className="text-[9px] tracking-[0.1em] text-white/25">· {t("subs.soon")}</span>
+                </span>
+              );
+            }
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setChosen(m)}
+                aria-pressed={active}
+                className={`${base} ${
+                  active
+                    ? "bg-gradient-to-r from-[#FF3B3B] to-[#C72C2C] text-white shadow-[0_6px_20px_-8px_rgba(255,59,59,0.8)]"
+                    : "text-white/55 hover:text-white"
+                }`}
+              >
+                {termLabel(m)}
+                {v.savePercent > 0 && (
+                  <span className={`text-[9px] tracking-[0.06em] ${active ? "text-white/85" : "text-[#FF3B3B]"}`}>
+                    −{v.savePercent}%
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Price */}
         <div className="mt-5 border-y border-white/10 py-4">
@@ -417,7 +379,7 @@ function PlanCard({
             </span>
           </div>
 
-          {(term && (term.months > 1 || term.savePercent > 0 || offTerm)) && (
+          {term && (term.months > 1 || term.savePercent > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {term.months > 1 && (
                 <span className="text-[11px] text-white/40">
@@ -432,11 +394,6 @@ function PlanCard({
                   {t("store.subterm.save").replace("{pct}", String(term.savePercent))}
                 </span>
               )}
-              {offTerm && (
-                <span className="text-[11px] text-amber-300/70">
-                  {t("subs.onlyTerm").replace("{term}", termLabel(term.months))}
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -445,11 +402,7 @@ function PlanCard({
         <button
           type="button"
           onClick={addToCart}
-          className={`group/btn relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-sm text-[11px] font-bold uppercase tracking-[0.18em] transition-all ${
-            featured
-              ? "bg-gradient-to-r from-[#FF3B3B] to-[#C72C2C] text-white hover:shadow-[0_0_40px_rgba(255,59,59,0.5)]"
-              : "border border-white/15 bg-white/[0.05] text-white hover:border-[#FF3B3B]/50 hover:bg-[#FF3B3B]/10"
-          }`}
+          className="group/btn relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-sm bg-gradient-to-r from-[#FF3B3B] to-[#C72C2C] text-[11px] font-bold uppercase tracking-[0.18em] text-white transition-all hover:shadow-[0_0_40px_rgba(255,59,59,0.5)]"
         >
           <span
             aria-hidden="true"

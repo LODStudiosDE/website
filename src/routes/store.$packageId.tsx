@@ -312,7 +312,7 @@ function ProductPage() {
 
               {/* Subscription term: 1 / 2 / 3 months. Every term is its own Tebex
                   package, so choosing one simply opens that package's page. */}
-              {plan && (
+              {plan && plan.variants.filter((v) => v.pkg).length > 1 && (
                 <div className="mt-5">
                   <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
                     {t("store.subterm.title")}

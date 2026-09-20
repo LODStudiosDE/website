@@ -52,6 +52,16 @@ export function parseSubscriptionName(name: string): { base: string; months: num
   return { base, months };
 }
 
+/**
+ * The term of ANY subscription package. One without a "- N months" suffix
+ * ("LOD Plus") is the plan's base offer: 1 month. That is what lets a plain
+ * "LOD Plus" and a later "LOD Plus - 3 months" find each other without
+ * renaming the package that customers already subscribed to.
+ */
+export function subscriptionTerm(name: string): { base: string; months: number } {
+  return parseSubscriptionName(name) ?? { base: name.trim(), months: 1 };
+}
+
 const sameBase = (a: string, b: string) =>
   a.replace(/\s+/g, " ").trim().toLowerCase() === b.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -67,20 +77,21 @@ export type SubscriptionVariant = {
 
 /**
  * All terms of the plan that `product` belongs to, in SUBSCRIPTION_TERMS order.
- * Returns null when `product` is not a term-based subscription.
+ * Returns null when `product` is not a subscription. A subscription without a
+ * "- N months" suffix counts as the 1-month term of its own plan.
  */
 export function subscriptionVariants(
   product: Pick<TebexPackage, "id" | "name" | "type">,
   subscriptionPackages: TebexPackage[],
 ): { base: string; variants: SubscriptionVariant[] } | null {
   if (product.type !== "subscription") return null;
-  const parsed = parseSubscriptionName(product.name);
-  if (!parsed) return null;
+  const parsed = subscriptionTerm(product.name);
 
   const byMonths = new Map<number, TebexPackage>();
   for (const p of subscriptionPackages) {
-    const info = parseSubscriptionName(p.name);
-    if (info && sameBase(info.base, parsed.base) && !byMonths.has(info.months)) {
+    if (p.type !== "subscription") continue;
+    const info = subscriptionTerm(p.name);
+    if (sameBase(info.base, parsed.base) && !byMonths.has(info.months)) {
       byMonths.set(info.months, p);
     }
   }
@@ -108,8 +119,8 @@ export function isSecondarySubscriptionTerm(
   if (!info || info.months === 1) return false;
   return all.some((o) => {
     if (o.type !== "subscription") return false;
-    const oi = parseSubscriptionName(o.name);
-    return !!oi && oi.months === 1 && sameBase(oi.base, info.base);
+    const oi = subscriptionTerm(o.name);
+    return oi.months === 1 && sameBase(oi.base, info.base);
   });
 }
 
