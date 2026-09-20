@@ -288,7 +288,31 @@ function StorePage() {
                     }}
                     count={allPackages.length}
                   />
-                  {/* A category made only of subscriptions is covered by the "included in" filter below. */}
+                  {/* Subscription plans sit in the list like categories: they filter to the products the plan includes. */}
+                  {planGroups.length > 0 && (
+                    <>
+                      {planGroups.map((g) => {
+                        const key = normName(g.base);
+                        const checked = selectedPlans.includes(key);
+                        return (
+                          <FilterCheckbox
+                            key={key}
+                            id={"plan-" + key.replace(/ /g, "-")}
+                            label={g.base}
+                            checked={checked}
+                            onCheckedChange={() => {
+                              setSelectedPlans((prev) =>
+                                checked ? prev.filter((k) => k !== key) : [...prev, key],
+                              );
+                              setPage(1);
+                            }}
+                            count={g.included.filter((p) => allPackages.some((a) => a.id === p.id)).length}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
+                  {/* A category made only of subscriptions is covered by the plan entries above. */}
                   {categories
                     .filter((c) => !(c.packages?.length && c.packages.every((p) => p.type === "subscription")))
                     .map((c) => {
@@ -314,32 +338,6 @@ function StorePage() {
                       />
                     );
                   })}
-                  {planGroups.length > 0 && (
-                    <>
-                      <div className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-store-muted">
-                        {t("store.filters.includedIn")}
-                      </div>
-                      {planGroups.map((g) => {
-                        const key = normName(g.base);
-                        const checked = selectedPlans.includes(key);
-                        return (
-                          <FilterCheckbox
-                            key={key}
-                            id={"plan-" + key.replace(/ /g, "-")}
-                            label={g.base}
-                            checked={checked}
-                            onCheckedChange={() => {
-                              setSelectedPlans((prev) =>
-                                checked ? prev.filter((k) => k !== key) : [...prev, key],
-                              );
-                              setPage(1);
-                            }}
-                            count={g.included.filter((p) => allPackages.some((a) => a.id === p.id)).length}
-                          />
-                        );
-                      })}
-                    </>
-                  )}
                 </div>
               </FilterSection>
 
