@@ -251,12 +251,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
 
       {/* Header: artwork + name */}
       <div className="relative flex items-center gap-4 p-5 pb-0 sm:p-6 sm:pb-0">
-        <Link
-          to="/store/$packageId"
-          params={{ packageId: String(pkg.id) }}
-          preload="render"
-          className="relative block h-[68px] w-[68px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0B]"
-        >
+        <div className="relative block h-[68px] w-[68px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#0A0A0B]">
           {plan.image ? (
             <img
               src={plan.image}
@@ -269,7 +264,7 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
               <Crown className="h-7 w-7" />
             </span>
           )}
-        </Link>
+        </div>
         <div className="min-w-0 flex-1">
           <span className="block text-[10px] font-bold uppercase tracking-[0.24em] text-[#FF3B3B]">
             {t("store.sub.badge")}

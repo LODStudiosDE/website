@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Crown, ChevronRight, ShoppingCart, Check, Sparkles } from "lucide-react";
+import { Crown, ShoppingCart, Check, Sparkles } from "lucide-react";
 
 import type { TebexPackage } from "@/lib/tebex";
 import { useCart } from "@/lib/cart-store";
@@ -100,18 +99,14 @@ export function SubscriptionOffer({
                   key={sub.id}
                   className="rounded-sm border border-white/10 bg-white/[0.03] p-3 transition hover:border-[#FF3B3B]/40"
                 >
-                  <Link
-                    to="/store/$packageId"
-                    params={{ packageId: String(sub.id) }}
-                    className="group/row flex items-center gap-3 text-left"
-                  >
+                  {/* Not a link: a plan is bought with the button, it has no product page. */}
+                  <div className="flex items-center gap-3 text-left">
                     <Thumb pkg={sub} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-display text-[14px] font-bold text-white">
                           {sub.name}
                         </span>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-white/30 transition group-hover/row:translate-x-0.5 group-hover/row:text-[#FF3B3B]" />
                       </div>
                       <div className="mt-0.5 flex items-baseline gap-1">
                         <span className="font-display text-[16px] font-bold text-white">
@@ -122,7 +117,7 @@ export function SubscriptionOffer({
                         </span>
                       </div>
                     </div>
-                  </Link>
+                  </div>
 
                   <button
                     type="button"
