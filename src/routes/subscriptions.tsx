@@ -198,10 +198,6 @@ function SubscriptionsPage() {
         {/* One screen: the heading on top, the subscription centred below it. */}
         <main className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col items-center justify-center px-6 pb-16 pt-[130px] lg:px-12">
           <div className="mb-8 flex flex-col items-center text-center">
-            <span className="mb-4 inline-flex items-center gap-2 border border-[#FF3B3B]/40 bg-[#FF3B3B]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.3em] text-[#FF3B3B] backdrop-blur-sm">
-              <Crown className="h-3.5 w-3.5" />
-              {t("subs.hero.eyebrow")}
-            </span>
             <h1 className="font-display max-w-4xl text-[clamp(2rem,4.6vw,4rem)] font-bold leading-[1.02] tracking-tighter text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
               {t("subs.hero.title")}
             </h1>
