@@ -371,17 +371,17 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
               </span>
             )}
             <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-              {term
-                ? term.months === 1
+              {!term || term.perMonth
+                ? t("store.sub.perMonth")
+                : term.months === 1
                   ? t("store.subterm.forMonth")
-                  : t("store.subterm.forMonths").replace("{n}", String(term.months))
-                : t("store.sub.perMonth")}
+                  : t("store.subterm.forMonths").replace("{n}", String(term.months))}
             </span>
           </div>
 
-          {term && (term.months > 1 || term.savePercent > 0) && (
+          {term && ((term.months > 1 && !term.perMonth) || term.savePercent > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {term.months > 1 && (
+              {term.months > 1 && !term.perMonth && (
                 <span className="text-[11px] text-white/40">
                   {t("subs.perMonthEq").replace(
                     "{price}",

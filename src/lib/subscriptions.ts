@@ -42,9 +42,13 @@ export const SUBSCRIPTION_RULES: SubscriptionRule[] = [
 export const SUBSCRIPTION_TERMS = [1, 2, 3] as const;
 export type SubscriptionTerm = (typeof SUBSCRIPTION_TERMS)[number];
 
-/** "Estates -  3 months" → { base: "Estates", months: 3 }; null if no term suffix. */
+/**
+ * "Estates - 3 months" / "LOD Plus 3 Months" → { base, months }; null if the name
+ * carries no term suffix. The separator is optional: the shop names these packages
+ * by hand and both spellings occur.
+ */
 export function parseSubscriptionName(name: string): { base: string; months: number } | null {
-  const m = /^(.*?)\s*[-–—:]\s*(\d{1,2})\s*(?:months?|monate?|mois)\s*$/i.exec(name.trim());
+  const m = /^(.*?)\s*(?:[-–—:]\s*)?(\d{1,2})\s*(?:months?|monate?|mois)\s*$/i.exec(name.trim());
   if (!m) return null;
   const months = Number(m[2]);
   const base = m[1].trim();
@@ -69,7 +73,14 @@ export type SubscriptionVariant = {
   months: number;
   /** The Tebex package for this term, or null when it does not exist (yet). */
   pkg: TebexPackage | null;
-  /** What this term would cost at the 1-month price (months × monthly). */
+  /**
+   * True when Tebex bills this term MONTHLY at a (possibly reduced) monthly
+   * price, false when its price covers the whole term. Decided from the two
+   * real prices: a whole-term price is always above the 1-month price, so a
+   * multi-month package priced at or below it can only be a per-month price.
+   */
+  perMonth: boolean;
+  /** What this term would cost at the 1-month price — the whole term, or one month when `perMonth`. */
   regularTotal: number | null;
   /** Whole-number saving vs. `regularTotal`, from the REAL prices. 0 if none. */
   savePercent: number;
@@ -99,12 +110,17 @@ export function subscriptionVariants(
   const monthly = byMonths.get(1)?.total_price ?? null;
   const variants = SUBSCRIPTION_TERMS.map((months): SubscriptionVariant => {
     const pkg = byMonths.get(months) ?? null;
-    const regularTotal = monthly != null ? Math.round(monthly * months * 100) / 100 : null;
+    // A 3-month package with the SAME price as the 1-month one is billed per
+    // month: reading it as a whole-term price would show a 67 % "saving" that
+    // does not exist. Only a price above the monthly one covers the whole term.
+    const perMonth = pkg != null && months > 1 && monthly != null && pkg.total_price <= monthly;
+    const regularTotal =
+      monthly == null ? null : perMonth ? monthly : Math.round(monthly * months * 100) / 100;
     let savePercent = 0;
     if (pkg && regularTotal && months > 1 && pkg.total_price < regularTotal) {
       savePercent = Math.round((1 - pkg.total_price / regularTotal) * 100);
     }
-    return { months, pkg, regularTotal, savePercent };
+    return { months, pkg, perMonth, regularTotal, savePercent };
   });
   return { base: parsed.base, variants };
 }

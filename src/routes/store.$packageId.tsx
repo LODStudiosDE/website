@@ -383,7 +383,7 @@ function ProductPage() {
                     </span>
                   )}
                   <span className="text-[11px] uppercase tracking-[0.2em] text-white/40">
-                    {currentTerm
+                    {currentTerm && !currentTerm.perMonth
                       ? currentTerm.months === 1
                         ? t("store.subterm.forMonth")
                         : t("store.subterm.forMonths").replace("{n}", String(currentTerm.months))
@@ -406,7 +406,7 @@ function ProductPage() {
                   </div>
                 )}
 
-                {currentTerm && currentTerm.months > 1 && (
+                {currentTerm && currentTerm.months > 1 && !currentTerm.perMonth && (
                   <div className="mt-2 text-[11px] text-white/40">
                     {t("store.subterm.perMonthEq").replace(
                       "{price}",
