@@ -349,18 +349,23 @@ function PlanCard({
   return (
     <article
       className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border transition-all duration-500 ${
+        // Fully opaque: the card sits on live video, so any transparency (or a
+        // tinted glow) shows the footage through as a muddy red-brown smear.
         featured
-          ? "border-[#FF3B3B]/45 bg-gradient-to-b from-[#FF3B3B]/[0.13] via-[#161011] to-[#0E0E0F] shadow-[0_30px_80px_-30px_rgba(255,59,59,0.45)]"
-          : "border-white/[0.08] bg-gradient-to-b from-[#151516] to-[#0E0E0F] hover:border-white/20"
+          ? "border-[#FF3B3B]/50 bg-[#120E0F] shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]"
+          : "border-white/[0.1] bg-[#101011] shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] hover:border-white/25"
       }`}
       style={{ animation: `fade-up 0.6s ${index * 0.08}s cubic-bezier(0.16,1,0.3,1) both` }}
     >
-      {featured && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[#FF3B3B]/25 blur-[90px]"
-        />
-      )}
+      {/* Clean accent line along the top edge instead of a tinted wash. */}
+      <span
+        aria-hidden
+        className={`pointer-events-none absolute inset-x-0 top-0 h-[2px] ${
+          featured
+            ? "bg-gradient-to-r from-transparent via-[#FF3B3B] to-transparent"
+            : "bg-gradient-to-r from-transparent via-white/20 to-transparent"
+        }`}
+      />
 
       {/* Header: artwork + name */}
       <div className="relative flex items-center gap-4 p-5 pb-0 sm:p-6 sm:pb-0">
