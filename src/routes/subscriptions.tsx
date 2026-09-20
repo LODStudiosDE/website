@@ -342,16 +342,21 @@ function PlanCard({ plan, terms, index }: { plan: Plan; terms: number[]; index: 
                 type="button"
                 onClick={() => setChosen(m)}
                 aria-pressed={active}
-                className={`${base} ${
+                className={`${base} flex-col !gap-0.5 ${
                   active
                     ? "bg-gradient-to-r from-[#FF3B3B] to-[#C72C2C] text-white shadow-[0_6px_20px_-8px_rgba(255,59,59,0.8)]"
                     : "text-white/55 hover:text-white"
                 }`}
               >
-                {termLabel(m)}
+                <span className="leading-none">{termLabel(m)}</span>
+                {/* The saving, small, directly under the term it belongs to. */}
                 {v.savePercent > 0 && (
-                  <span className={`text-[9px] tracking-[0.06em] ${active ? "text-white/85" : "text-[#FF3B3B]"}`}>
-                    −{v.savePercent}%
+                  <span
+                    className={`text-[9px] font-semibold normal-case leading-none tracking-[0.04em] ${
+                      active ? "text-white/90" : "text-[#FF3B3B]"
+                    }`}
+                  >
+                    {t("subs.off").replace("{pct}", String(v.savePercent))}
                   </span>
                 )}
               </button>
