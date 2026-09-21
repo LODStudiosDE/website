@@ -164,25 +164,103 @@ export type Perk = { label: string; pkg: TebexPackage | null };
 
 /** Comparison form for product names: case, accents and punctuation must not decide a match. */
 export const normName = (s: string) =>
-  s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+  s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+// The plan lists are written by hand, often in another language or with the
+// short form of a name. These words count as the same thing when comparing.
+const SYNONYMS: Record<string, string> = {
+  villa: "estate",
+  mansion: "estate",
+  anwesen: "estate",
+  station: "department",
+  center: "department",
+  centre: "department",
+  vpd: "vinewood police department",
+  donertempel: "kebab temple",
+  doenertempel: "kebab temple",
+};
+
+function nameTokens(s: string): string[] {
+  const out: string[] = [];
+  for (const w of normName(s).split(" ")) {
+    if (!w) continue;
+    for (const x of (SYNONYMS[w] ?? w).split(" ")) if (!out.includes(x)) out.push(x);
+  }
+  return out;
+}
+
+function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+/** Same word — or a one-letter typo of a long word ("Seolight" / "Seoulight"). */
+const sameToken = (a: string, b: string) =>
+  a === b || (a.length >= 6 && b.length >= 6 && editDistance(a, b) <= 1);
+
+const VERSION = /^v\d+$/;
 
 /**
- * Turns one line of a plan description into a perk. A line that names a store
- * product ("Pillbox Medical Department") is linked to it; the shop writes these
- * lists by hand, so the names are close but rarely exact ("Carmeet" vs.
- * "Carmeet Autopia") — hence the contains-match on top of the exact one.
+ * The store product a plan line refers to, or null. The names are close but rarely
+ * identical ("Madrazo Estate V2" vs. "Madrazo V2", "Towstar" vs. "Tow Star"), so
+ * candidates are ranked by how many words they share: identical wording first,
+ * then one name contained in the other, then mostly overlapping. When several
+ * candidates tie, an unversioned line ("Starlight Park") means the first version;
+ * if that still does not single one out, nothing is linked rather than a guess.
  */
+export function matchProduct(label: string, singles: TebexPackage[]): TebexPackage | null {
+  const q = nameTokens(label);
+  if (q.join("").length < 3) return null;
+
+  const scored: { pkg: TebexPackage; score: number; tokens: string[] }[] = [];
+  for (const pkg of singles) {
+    const c = nameTokens(pkg.name);
+    if (c.length === 0) continue;
+    if (q.join("") === c.join("")) {
+      scored.push({ pkg, score: 2, tokens: c });
+      continue;
+    }
+    const qHit = q.filter((x) => c.some((y) => sameToken(x, y))).length;
+    const cHit = c.filter((y) => q.some((x) => sameToken(x, y))).length;
+    const contained = qHit === q.length || cHit === c.length;
+    const smaller = qHit === q.length ? q : c;
+    const union = q.length + c.length - Math.min(qHit, cHit);
+    const jaccard = union > 0 ? Math.min(qHit, cHit) / union : 0;
+    if ((contained && smaller.join("").length >= 4 && jaccard > 0) || jaccard >= 0.6) {
+      scored.push({ pkg, score: jaccard, tokens: c });
+    }
+  }
+  if (scored.length === 0) return null;
+
+  const best = Math.max(...scored.map((s) => s.score));
+  let top = scored.filter((s) => s.score === best);
+  if (top.length > 1 && !q.some((x) => VERSION.test(x))) {
+    const first = top.filter((s) => {
+      const v = s.tokens.find((x) => VERSION.test(x));
+      return !v || v === "v1";
+    });
+    if (first.length > 0) top = first;
+  }
+  return top.length === 1 ? top[0].pkg : null;
+}
+
+/** Turns one line of a plan description into a perk: the line, plus the product it names if any. */
 export function toPerk(label: string, singles: TebexPackage[]): Perk {
-  const q = normName(label);
-  if (q.length < 3) return { label, pkg: null };
-  const exact = singles.find((p) => normName(p.name) === q);
-  if (exact) return { label, pkg: exact };
-  const partial = singles.filter((p) => {
-    const n = normName(p.name);
-    return n.length >= 4 && (q.includes(n) || n.includes(q));
-  });
-  // Only an unambiguous partial match counts — two candidates mean we guessed.
-  return { label, pkg: partial.length === 1 ? partial[0] : null };
+  return { label, pkg: matchProduct(label, singles) };
 }
 
 /** The perks of the plan whose sold packages are `coveredIds`, built from `anchor`'s description. */
