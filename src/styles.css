@@ -1,0 +1,192 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-store-panel: var(--store-panel);
+  --color-store-panel-foreground: var(--store-panel-foreground);
+  --color-store-muted: var(--store-muted);
+  --color-store-accent: var(--store-accent);
+  --color-store-accent-foreground: var(--store-accent-foreground);
+
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.375rem;
+  --background: oklch(0.13 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.18 0.02 260);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.18 0.02 260);
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(0.68 0.18 18);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.22 0.02 260);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.22 0.02 260);
+  --muted-foreground: oklch(0.72 0.02 260);
+  --accent: oklch(0.68 0.18 18);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.6 0.24 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.68 0.18 18);
+
+  --store-panel: oklch(0.18 0 0);
+  --store-panel-foreground: oklch(1 0 0);
+  --store-muted: oklch(0.62 0.02 260);
+  --store-accent: oklch(0.62 0.24 25);
+  --store-accent-foreground: oklch(1 0 0);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body {
+    background-color: #0A0F18;
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+@utility font-headline {
+  font-family: "Archivo Black", "Space Grotesk", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+@utility font-editorial {
+  font-family: "Hind", "Inter", system-ui, sans-serif;
+}
+
+@utility hero-grad {
+  background: linear-gradient(
+    90deg,
+    rgba(10, 15, 24, 0.95) 0%,
+    rgba(10, 15, 24, 0.7) 35%,
+    rgba(10, 15, 24, 0.3) 65%,
+    rgba(10, 15, 24, 0.5) 100%
+  );
+}
+
+@utility hero-grad-bottom {
+  background: transparent;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bar-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@utility animate-fade-in-slow {
+  animation: fade-in 1.4s ease-out both;
+}
+@utility animate-bar-shimmer {
+  animation: bar-shimmer 1.8s ease-in-out infinite;
+}
+@utility animate-marquee-x {
+  animation: marquee-x 18s linear infinite;
+}
+
+/* Hide scrollbar on carousel */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* Themed thin scrollbar for legal/content dialogs */
+@utility scrollbar-brand {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 59, 59, 0.4) transparent;
+  &::-webkit-scrollbar { width: 6px; height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 59, 59, 0.35);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover { background: rgba(255, 59, 59, 0.6); }
+}
+
+/* Admin <select> caret — red chevron. Plain CSS (not @utility) with a fully
+   percent-encoded, unquoted data URI so lightningcss parses it reliably. */
+.admin-select-caret {
+  background-image: url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23FF3B3B%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E);
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 16px;
+}
+
+/* Global page scrollbar — brand themed */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 59, 59, 0.4) transparent;
+}
+html::-webkit-scrollbar { width: 10px; height: 10px; }
+html::-webkit-scrollbar-track { background: #09090A; }
+html::-webkit-scrollbar-thumb {
+  background: rgba(255, 59, 59, 0.35);
+  border-radius: 9999px;
+  border: 2px solid #09090A;
+}
+html::-webkit-scrollbar-thumb:hover { background: rgba(255, 59, 59, 0.6); }
+
+/* Content protection — no text selection except in form fields */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+img { -webkit-user-drag: none; }
