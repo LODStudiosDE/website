@@ -216,6 +216,8 @@ export async function evaluateReferrals(
   bin: ReferralBin,
   viewerCfxId: string,
 ): Promise<boolean> {
+  // A switched-off program neither completes referrals nor hands out points.
+  if (!bin.settings.enabled) return false;
   const pending = bin.referrals.filter(
     (r) =>
       r.status === "pending" &&

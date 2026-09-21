@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Gift, Plus, Pencil, Trash2, Check, X, Users, Sparkles, Trophy } from "lucide-react";
+import { Gift, Plus, Pencil, Trash2, Check, X, Users, Sparkles, Trophy, Power } from "lucide-react";
 import { notify as toast } from "@/components/Notify";
 import {
   AdminButton,
@@ -94,6 +94,21 @@ function AdminReferrals() {
     onError: () => toast.error("Aktualisierung fehlgeschlagen"),
   });
 
+  // One click on/off for the whole program: saves at once, no "Speichern" needed.
+  const power = useMutation({
+    mutationFn: (enabled: boolean) =>
+      saveReferralSettings({
+        data: { basketIdent: basketIdent!, settings: { ...query.data!.settings, enabled } },
+      }),
+    onSuccess: (res, enabled) => {
+      if (res.ok) {
+        toast.success(enabled ? "Empfehlungsprogramm eingeschaltet" : "Empfehlungsprogramm ausgeschaltet");
+        void invalidate();
+      } else toast.error("Umschalten fehlgeschlagen");
+    },
+    onError: () => toast.error("Umschalten fehlgeschlagen"),
+  });
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteReferralReward({ data: { basketIdent: basketIdent!, id } }),
     onSuccess: (res) => {
@@ -123,6 +138,28 @@ function AdminReferrals() {
         title="Empfehlungsprogramm"
         subtitle="Steuere Einstellungen, Belohnungen und alle Empfehlungen deiner Community."
         icon={<Gift className="h-5 w-5" />}
+        actions={
+          data?.configured ? (
+            <button
+              type="button"
+              disabled={!canManage || power.isPending}
+              onClick={() => power.mutate(!data.settings.enabled)}
+              title={canManage ? undefined : "Keine Berechtigung"}
+              className={`inline-flex h-11 items-center gap-2.5 rounded-xl border px-5 text-[12px] font-bold uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                data.settings.enabled
+                  ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
+                  : "border-white/15 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white"
+              }`}
+            >
+              <Power className="h-4 w-4" />
+              {power.isPending
+                ? "…"
+                : data.settings.enabled
+                  ? "Programm aktiv · Ausschalten"
+                  : "Programm aus · Einschalten"}
+            </button>
+          ) : undefined
+        }
       />
 
       {query.isLoading ? (
