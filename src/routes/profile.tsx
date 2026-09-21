@@ -36,6 +36,7 @@ import {
 } from "@/lib/tebex-account.functions";
 import { formatPrice } from "@/lib/cart-store";
 import { useT } from "@/lib/i18n";
+import { useReferralStatus } from "@/lib/referral-status";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -170,6 +171,7 @@ function EmailSection() {
 function ProfilePage() {
   const t = useT();
   const { user, isAuthed, login, loading } = useTebexAuth();
+  const referralEnabled = useReferralStatus().enabled;
 
   const profileQuery = useQuery({
     queryKey: ["tebex-profile", user?.basketIdent],
@@ -222,6 +224,7 @@ function ProfilePage() {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* Referral program */}
+          {referralEnabled && (
           <section className="lg:col-span-2">
             <Link
               to="/referral"
@@ -245,6 +248,7 @@ function ProfilePage() {
               </span>
             </Link>
           </section>
+          )}
 
           {/* Subscriptions (active/inactive) */}
           <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 lg:col-span-2">

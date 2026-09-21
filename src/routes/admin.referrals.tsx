@@ -17,6 +17,7 @@ import {
   selectClass,
 } from "@/components/admin/ui";
 import { useTebexAuth } from "@/lib/tebex-auth";
+import { REFERRAL_STATUS_KEY } from "@/lib/referral-status";
 import { useAdminSession } from "@/lib/admin/use-admin";
 import {
   deleteReferralReward,
@@ -104,6 +105,7 @@ function AdminReferrals() {
       if (res.ok) {
         toast.success(enabled ? "Empfehlungsprogramm eingeschaltet" : "Empfehlungsprogramm ausgeschaltet");
         void invalidate();
+        void qc.invalidateQueries({ queryKey: REFERRAL_STATUS_KEY });
       } else toast.error("Umschalten fehlgeschlagen");
     },
     onError: () => toast.error("Umschalten fehlgeschlagen"),

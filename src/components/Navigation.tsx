@@ -6,6 +6,7 @@ import { useCart } from "@/lib/cart-store";
 import { useTebexAuth } from "@/lib/tebex-auth";
 import { useAdminSession } from "@/lib/admin/use-admin";
 import { useT } from "@/lib/i18n";
+import { useReferralStatus } from "@/lib/referral-status";
 
 const navItems: {
   key: string;
@@ -159,6 +160,7 @@ function ProfileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const referralEnabled = useReferralStatus().enabled;
 
   useEffect(() => {
     if (!open) return;
@@ -209,15 +211,17 @@ function ProfileMenu({
             {profileLabel}
           </Link>
 
-          <Link
-            to="/referral"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 text-[12px] font-semibold text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
-          >
-            <Users className="h-[15px] w-[15px] text-[#FF3B3B]" strokeWidth={2} />
-            Empfehlungen
-          </Link>
+          {referralEnabled && (
+            <Link
+              to="/referral"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 text-[12px] font-semibold text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
+            >
+              <Users className="h-[15px] w-[15px] text-[#FF3B3B]" strokeWidth={2} />
+              Empfehlungen
+            </Link>
+          )}
 
           {isAdmin && (
             <Link

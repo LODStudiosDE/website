@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useReferralStatus } from "@/lib/referral-status";
+import { ReferralMaintenance } from "@/components/ReferralMaintenance";
 import {
   Check,
   Gift,
@@ -126,6 +128,7 @@ const FAQS: { q: string; a: string; icon: LucideIcon }[] = [
 
 function ReferralPage() {
   const { user, isAuthed, login, loading } = useTebexAuth();
+  const referralStatus = useReferralStatus();
   const basketIdent = user?.basketIdent;
   const qc = useQueryClient();
 
@@ -217,6 +220,8 @@ function ReferralPage() {
       minute: "2-digit",
     });
   };
+
+  if (referralStatus.maintenance) return <ReferralMaintenance />;
 
   if (!isAuthed) {
     return <ReferralLoginGate onLogin={login} loading={loading} />;

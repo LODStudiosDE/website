@@ -262,3 +262,16 @@ export const setReferralLeaderboardHidden = createServerFn({ method: "POST" })
     user.hidden = data.hidden;
     return { ok: await writeReferralBin(bin) };
   });
+
+/**
+ * Whether the program is switched on. Public and identity-free: the menu, the
+ * profile and the referral pages all ask it, so an admin's on/off switch shows
+ * up everywhere without anyone reloading.
+ */
+export const getReferralStatus = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ configured: boolean; enabled: boolean }> => {
+    if (!referralsConfigured()) return { configured: false, enabled: false };
+    const bin = await readReferralBin();
+    return { configured: true, enabled: bin.settings.enabled };
+  },
+);
