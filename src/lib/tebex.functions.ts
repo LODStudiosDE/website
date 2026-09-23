@@ -93,6 +93,7 @@ export const createCartCheckout = createServerFn({ method: "POST" })
           username?: string | null;
           username_id?: number | null;
           complete?: boolean;
+          packages?: Array<{ id: number; in_basket?: { quantity: number } }>;
         };
       }).data;
     if (!sourceBasket.username) {
@@ -102,6 +103,34 @@ export const createCartCheckout = createServerFn({ method: "POST" })
       throw new Error("Tebex basket already paid");
     }
     const basketIdent = sourceBasketIdent;
+
+    // The basket is reused across checkout attempts for as long as the user
+    // stays logged in, but our add-loop below is additive-only. Without this
+    // step, a package removed inside the hosted Tebex checkout (or left over
+    // from an abandoned attempt) stays attached to the basket forever and
+    // resurfaces on the next, unrelated checkout. Sync the basket to the
+    // current cart first: drop anything Tebex still has that isn't in
+    // `data.items` any more.
+    const wantedIds = new Set(data.items.map((it) => it.packageId));
+    const stalePackages = (sourceBasket.packages ?? []).filter(
+      (pkg) => !wantedIds.has(pkg.id),
+    );
+    for (const pkg of stalePackages) {
+      const removeRes = await fetch(
+        `${TEBEX_BASE}/baskets/${encodeURIComponent(basketIdent)}/packages/remove`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ package_id: String(pkg.id) }),
+        },
+      );
+      // 404/422 = already gone; anything else is a real failure worth surfacing.
+      if (!removeRes.ok && removeRes.status !== 404 && removeRes.status !== 422) {
+        throw new Error(
+          `Tebex remove-package ${pkg.id} failed: ${removeRes.status} ${await removeRes.text()}`,
+        );
+      }
+    }
 
     const creatorCode = data.creatorCode?.trim();
     if (creatorCode) {
